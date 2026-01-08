@@ -1,7 +1,8 @@
+
 import { RadioStation } from '../types';
 import { RADIO_BROWSER_MIRRORS } from '../constants';
 
-const CACHE_KEY_PREFIX = 'streamflow_station_cache_v9_'; // Increment version to invalidate old cache
+const CACHE_KEY_PREFIX = 'streamflow_station_cache_v11_'; // Increment version to invalidate old cache
 const CACHE_TTL_MINUTES = 30;
 
 interface CacheEntry {
@@ -198,7 +199,9 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
         "Спокойное радио",
         "Test",
         "Stream",
-        "My Radio"
+        "My Radio",
+        "Abdulbasit", // Added global block for "Abdulbasit"
+        "Abdulsamad"  // Added global block for "Abdulsamad" 
     ];
 
     // Regex to detect Arabic characters
@@ -238,6 +241,8 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
           // Vietnamese Exception
           if (isVietnamese) {
               if (t.includes('tin tức') || n.includes('tin tức') || t.includes('news')) continue;
+              // Specific Filter requested by User for "Abdulbasit" / Islamic content in Vietnamese section
+              if (n.includes('abdulbasit') || t.includes('quran') || t.includes('islamic')) continue;
           } 
           // Kyrgyz Exception: Allow mixed content but filter strict "news" if it's the *only* thing
           else if (isKyrgyz) {
@@ -331,7 +336,7 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
       lowerTag = 'vietnam';
   }
 
-  const cacheKey = `tag_v9_${lowerTag}_l${limit}`;
+  const cacheKey = `tag_v11_${lowerTag}_l${limit}`;
   const cachedData = getFromCache(cacheKey);
   if (cachedData) return cachedData;
 
@@ -343,12 +348,13 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
     // Special Handling for Vietnamese to ensuring specific terms are found
     if (lowerTag === 'vietnam') {
         // Fetch by country (broadest) AND by specific Vietnamese keywords requested
-        const [countryData, musicData, radioData] = await Promise.all([
+        const [countryData, musicData, radioData, boleroData] = await Promise.all([
             fetchAcrossMirrorsFast(`bycountry/vietnam`, urlParams),
             fetchAcrossMirrorsFast(`byname/âm nhạc`, urlParams), // "Music" in Vietnamese
-            fetchAcrossMirrorsFast(`byname/đài`, urlParams)      // "Station" in Vietnamese
+            fetchAcrossMirrorsFast(`byname/đài`, urlParams),      // "Station" in Vietnamese
+            fetchAcrossMirrorsFast(`bytag/bolero`, urlParams)     // Add Bolero music as requested
         ]);
-        data = [...countryData, ...musicData, ...radioData];
+        data = [...countryData, ...musicData, ...radioData, ...boleroData];
     } 
     // Special Handling for Kyrgyz
     else if (lowerTag === 'kyrgyz') {
@@ -387,7 +393,7 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
 
 export const fetchStationsByUuids = async (uuids: string[]): Promise<RadioStation[]> => {
     if (uuids.length === 0) return [];
-    const cacheKey = `uuids_v9_${uuids.sort().join('_')}`;
+    const cacheKey = `uuids_v11_${uuids.sort().join('_')}`;
     const cachedData = getFromCache(cacheKey);
     if (cachedData) return cachedData;
 

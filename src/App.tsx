@@ -1,11 +1,14 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
-import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings } from './types';
+import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
 import DancingAvatar from './components/DancingAvatar';
+import CosmicBackground from './components/CosmicBackground';
+import RainEffect from './components/RainEffect';
+import FireEffect from './components/FireEffect';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, MaximizeIcon, XMarkIcon, DownloadIcon,
@@ -35,7 +38,7 @@ const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = 
 };
 
 const DEFAULT_VIZ_SETTINGS: VisualizerSettings = {
-  scaleX: 1.0, scaleY: 1.0, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 1.0, speed: 1.0, autoIdle: true, performanceMode: true
+  scaleX: 1.0, scaleY: 1.0, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 1.0, speed: 1.0, autoIdle: true, performanceMode: true, energySaver: false
 };
 
 const INITIAL_CHUNK = 5; 
@@ -43,12 +46,13 @@ const TRICKLE_STEP = 5;
 const AUTO_TRICKLE_LIMIT = 15;
 const PAGE_SIZE = 10;
 
+// Replaced with verified direct MP3 links from Pixabay to fix playback errors
 const AMBIENCE_URLS = {
-    rain_soft: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
-    rain_roof: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_29a2072236.mp3',
-    fire: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_27bd4e6988.mp3',
-    city: 'https://cdn.pixabay.com/download/audio/2021/09/06/audio_3327671239.mp3',
-    vinyl: 'https://cdn.pixabay.com/download/audio/2022/02/07/audio_6527581fb9.mp3' 
+    rain_soft: 'https://cdn.pixabay.com/audio/2022/03/10/audio_5c0587f79a.mp3', // Gentle Rain
+    rain_roof: 'https://cdn.pixabay.com/audio/2022/02/18/audio_8233f0190a.mp3', // Rain on Roof
+    fire: 'https://cdn.pixabay.com/audio/2021/09/06/audio_73e72eb298.mp3', // Fireplace Crackle
+    city: 'https://cdn.pixabay.com/audio/2021/08/04/audio_15239a5153.mp3', // City Ambience
+    vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' // Vinyl Static
 };
 
 const StationCard = React.memo(({ 
@@ -130,6 +134,14 @@ export default function App() {
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [fxSettings, setFxSettings] = useState<FxSettings>({ reverb: 0, speed: 1.0 });
+  
+  const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>({
+      compressorEnabled: false,
+      compressorThreshold: -24,
+      compressorRatio: 12,
+      bassBoost: 0,
+      loudness: 0
+  });
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {
@@ -158,6 +170,13 @@ export default function App() {
   });
   const [passport, setPassport] = useState<PassportData>(() => { try { return JSON.parse(localStorage.getItem('streamflow_passport') || '') } catch { return { countriesVisited: [], totalListeningMinutes: 0, nightListeningMinutes: 0, stationsFavorited: 0, unlockedAchievements: [], level: 1 } } });
   const [alarm, setAlarm] = useState<AlarmConfig>({ enabled: false, time: '08:00', days: [1,2,3,4,5] });
+
+  // Derived state for visual mode based on settings
+  const visualMode = useMemo(() => {
+      if (vizSettings.energySaver) return 'low';
+      if (vizSettings.performanceMode) return 'medium';
+      return 'high';
+  }, [vizSettings.energySaver, vizSettings.performanceMode]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const ambienceRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -587,6 +606,8 @@ export default function App() {
 
   return (
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
+      <RainEffect intensity={ambience.rainVolume} />
+      <FireEffect intensity={ambience.fireVolume} />
       <audio ref={audioRef} onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} onPause={() => setIsPlaying(false)} onWaiting={() => setIsBuffering(true)} onEnded={() => { if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } }} crossOrigin="anonymous" />
       
       {aiNotification && (
@@ -608,7 +629,7 @@ export default function App() {
 
       <aside className={`fixed inset-y-0 left-0 z-[70] w-72 transform transition-all duration-500 glass-panel flex flex-col bg-[var(--panel-bg)] ${isIdleView ? '-translate-x-full opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`p-6 flex items-center justify-between ${showDeveloperNews ? 'mt-6' : ''}`}>
-           <div className="flex items-center gap-3"><h1 className="text-2xl font-black tracking-tighter">StreamFlow</h1><DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-9 h-9" /></div>
+           <div className="flex items-center gap-3"><h1 className="text-2xl font-black tracking-tighter">StreamFlow</h1><DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-9 h-9" visualMode={visualMode} /></div>
            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 text-slate-400"><XMarkIcon className="w-6 h-6" /></button>
         </div>
         <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-left duration-300">
@@ -690,7 +711,7 @@ export default function App() {
             {selectedCategory && viewMode !== 'favorites' && (
                 <div className="mb-10 p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
                     <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} /></div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} /></div>
                     <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
                 </div>
             )}
@@ -710,8 +731,15 @@ export default function App() {
         </div>
 
         {isIdleView && (
-           <div className="fixed inset-0 z-0 animate-in fade-in duration-1000 bg-black">
-              <div className="absolute inset-0 w-full h-full"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} /></div>
+           <div className="fixed inset-0 z-0 animate-in fade-in duration-1000 bg-[#02040a]">
+              {/* Separate Cosmic Background with Moon */}
+              <CosmicBackground />
+
+              <div className="absolute inset-0 w-full h-full z-10">
+                {!vizSettings.energySaver && (
+                  <AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} />
+                )}
+              </div>
            </div>
         )}
 
@@ -719,7 +747,7 @@ export default function App() {
            <div className={`pointer-events-auto max-w-5xl mx-auto rounded-[2.5rem] p-4 flex flex-col shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
-                        <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" />
+                        <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
                         <div className="min-w-0">
                             <h4 className="font-black text-sm md:text-base truncate">{currentStation?.name || 'Radio Stream'}</h4>
                             <p className="text-[10px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
@@ -742,7 +770,49 @@ export default function App() {
         </div>
 
         <Suspense fallback={null}>
-            <ToolsPanel isOpen={toolsOpen} onClose={() => setToolsOpen(false)} eqGains={eqGains} setEqGain={(i, v) => setEqGains(p => { const n = [...p]; n[i] = v; return n; })} onSetEqValues={(vals) => setEqGains(vals)} sleepTimer={sleepTimer} setSleepTimer={setSleepTimer} currentTheme={currentTheme} setTheme={setCurrentTheme} baseTheme={baseTheme} setBaseTheme={setBaseTheme} language={language} setLanguage={setLanguage} visualizerVariant={visualizerVariant} setVisualizerVariant={setVisualizerVariant} vizSettings={vizSettings} setVizSettings={setVizSettings} onStartTutorial={() => { setToolsOpen(false); setTutorialOpen(true); }} onOpenManual={() => { setToolsOpen(false); setManualOpen(true); }} onOpenProfile={() => { setToolsOpen(false); setShowProfileSetup(true); }} showDeveloperNews={showDeveloperNews} setShowDeveloperNews={handleToggleDevNews} ambience={ambience} setAmbience={setAmbience} passport={passport} alarm={alarm} setAlarm={setAlarm} onThrowBottle={() => {}} onCheckBottle={() => null} customCardColor={customCardColor} setCustomCardColor={setCustomCardColor} fxSettings={fxSettings} setFxSettings={setFxSettings} />
+            <ToolsPanel 
+                isOpen={toolsOpen} 
+                onClose={() => setToolsOpen(false)} 
+                eqGains={eqGains} 
+                setEqGain={(i, v) => setEqGains(p => { const n = [...p]; n[i] = v; return n; })} 
+                onSetEqValues={(vals) => setEqGains(vals)} 
+                sleepTimer={sleepTimer} 
+                setSleepTimer={setSleepTimer} 
+                currentTheme={currentTheme} 
+                setTheme={setCurrentTheme} 
+                baseTheme={baseTheme} 
+                setBaseTheme={setBaseTheme} 
+                language={language} 
+                setLanguage={setLanguage} 
+                visualizerVariant={visualizerVariant} 
+                setVisualizerVariant={setVisualizerVariant} 
+                vizSettings={vizSettings} 
+                setVizSettings={setVizSettings} 
+                onStartTutorial={() => { setToolsOpen(false); setTutorialOpen(true); }} 
+                onOpenManual={() => { setToolsOpen(false); setManualOpen(true); }} 
+                onOpenProfile={() => { setToolsOpen(false); setShowProfileSetup(true); }} 
+                showDeveloperNews={showDeveloperNews} 
+                setShowDeveloperNews={handleToggleDevNews} 
+                ambience={ambience} 
+                setAmbience={setAmbience} 
+                passport={passport} 
+                alarm={alarm} 
+                setAlarm={setAlarm} 
+                onThrowBottle={() => {}} 
+                onCheckBottle={() => null} 
+                customCardColor={customCardColor} 
+                setCustomCardColor={setCustomCardColor} 
+                fxSettings={fxSettings} 
+                setFxSettings={setFxSettings} 
+                audioEnhancements={audioEnhancements} 
+                setAudioEnhancements={setAudioEnhancements}
+                onGlobalReset={() => {
+                   if (window.confirm(language === 'ru' ? TRANSLATIONS.ru.resetConfirm : TRANSLATIONS.en.resetConfirm)) {
+                       localStorage.clear();
+                       window.location.reload();
+                   }
+                }}
+            />
         </Suspense>
         <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /><TutorialOverlay isOpen={tutorialOpen || !!highlightFeature} onClose={() => { setTutorialOpen(false); setHighlightFeature(null); }} language={language} highlightFeature={highlightFeature} /></Suspense>
         <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
@@ -750,7 +820,7 @@ export default function App() {
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} /></Suspense>
         {showProfileSetup && <Suspense fallback={null}><ProfileSetup onComplete={handleProfileComplete} language={language} initialProfile={currentUser} onCancel={() => setShowProfileSetup(false)} /></Suspense>}
       </main>
-      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} /></Suspense>
+      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} visualMode={visualMode} /></Suspense>
     </div>
   );
 }

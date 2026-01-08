@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
-import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, VisualMode, AudioProcessSettings } from './types';
+import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
 import DancingAvatar from './components/DancingAvatar';
+import CosmicBackground from './components/CosmicBackground';
+import RainEffect from './components/RainEffect';
+import FireEffect from './components/FireEffect';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, MaximizeIcon, XMarkIcon, DownloadIcon,
-  SwatchIcon, EnvelopeIcon, LifeBuoyIcon
+  SwatchIcon, EnvelopeIcon, LifeBuoyIcon 
 } from './components/Icons';
 
 // --- LAZY LOADED BRANCHES ---
@@ -43,45 +46,13 @@ const TRICKLE_STEP = 5;
 const AUTO_TRICKLE_LIMIT = 15;
 const PAGE_SIZE = 10;
 
+// Replaced with more reliable direct MP3 links
 const AMBIENCE_URLS = {
-    rain_soft: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
-    rain_roof: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_29a2072236.mp3',
-    fire: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_27bd4e6988.mp3',
-    city: 'https://cdn.pixabay.com/download/audio/2021/09/06/audio_3327671239.mp3',
-    vinyl: 'https://cdn.pixabay.com/download/audio/2021/11/24/audio_823f0402a7.mp3' 
-};
-
-// STORAGE KEYS
-const STORAGE_KEYS = {
-    SETTINGS: 'streamflow_settings_v1',
-    LAST_STATION: 'streamflow_last_station_v1',
-    FAVORITES: 'streamflow_favorites',
-    USER_PROFILE: 'streamflow_user_profile',
-    PASSPORT: 'streamflow_passport',
-    CHATS: 'streamflow_chats_v1',
-    MESSAGES: 'streamflow_messages_v1',
-    REQUESTS: 'streamflow_requests_v1',
-    STATIONS: 'streamflow_stations_cache_list_v1',
-    VISIBLE_COUNT: 'streamflow_visible_count_v1'
-};
-
-// --- PERFORMANCE UTILS ---
-const detectVisualMode = (): VisualMode => {
-  if (typeof navigator === 'undefined') return 'medium';
-  
-  // @ts-ignore - deviceMemory is not standard in all TS libs yet
-  const memory = (navigator as any).deviceMemory || 4;
-  const cores = navigator.hardwareConcurrency || 4;
-  const ua = navigator.userAgent;
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  
-  if (isMobile) {
-    if (memory <= 3 || cores <= 4) return 'low';
-    return 'medium';
-  }
-  
-  if (memory <= 4) return 'medium';
-  return 'high';
+    rain_soft: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
+    rain_roof: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3', // Fallback to same reliable source
+    fire: 'https://soundbible.com/mp3/Fire_Burning-Jaime_Os_Rivera-794514509.mp3',
+    city: 'https://soundbible.com/mp3/City_Traffic-Sound_Explorer-1662968325.mp3',
+    vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' 
 };
 
 const StationCard = React.memo(({ 
@@ -97,7 +68,7 @@ const StationCard = React.memo(({
     <div 
       onClick={() => onPlay(station)} 
       className={`group relative rounded-[2rem] p-5 cursor-pointer transition-all border-2 animate-in fade-in slide-in-from-bottom-3 duration-500 ${isSelected ? 'bg-[var(--selected-item-bg)] border-primary shadow-2xl shadow-primary/20 scale-[1.02]' : 'glass-card border-[var(--panel-border)] hover:border-white/20 hover:bg-white/5'}`}
-      style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }} 
+      style={{ animationDelay: `${(index % 5) * 50}ms` }}
     >
       <div className="flex justify-between mb-4">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-800/50 relative shadow-inner">
@@ -120,77 +91,12 @@ const StationCard = React.memo(({
 
 export default function App() {
   
-  // Helpers for Persisted State
-  const getStoredSettings = <T,>(key: string, defaultVal: T): T => {
-      try {
-          const stored = localStorage.getItem(key);
-          if (!stored) return defaultVal;
-          const parsed = JSON.parse(stored);
-          // Shallow merge to ensure new keys in defaultVal are present in parsed
-          return typeof parsed === 'object' && !Array.isArray(parsed) ? { ...defaultVal, ...parsed } : parsed;
-      } catch {
-          return defaultVal;
-      }
-  };
-
-  const [savedSettings, setSavedSettings] = useState(() => getStoredSettings(STORAGE_KEYS.SETTINGS, {
-      viewMode: 'genres' as ViewMode,
-      selectedCategoryId: 'jazz', // Default genre ID
-      volume: DEFAULT_VOLUME,
-      eqGains: new Array(10).fill(0),
-      currentTheme: 'default' as ThemeName,
-      baseTheme: 'dark' as BaseTheme,
-      customCardColor: null as string | null,
-      language: 'ru' as Language,
-      visualizerVariant: 'galaxy' as VisualizerVariant,
-      vizSettings: DEFAULT_VIZ_SETTINGS,
-      showDeveloperNews: true,
-      fxSettings: { reverb: 0, speed: 1.0 } as FxSettings,
-      audioEnhancements: {
-          compressorEnabled: false,
-          compressorThreshold: -24,
-          compressorRatio: 4,
-          bassBoost: 0,
-          loudness: 0
-      } as AudioProcessSettings,
-      ambience: { 
-          rainVolume: 0, rainVariant: 'soft', fireVolume: 0, cityVolume: 0, vinylVolume: 0, is8DEnabled: false, spatialSpeed: 1 
-      } as AmbienceState,
-      alarm: { enabled: false, time: '08:00', days: [1,2,3,4,5] } as AlarmConfig
-  }));
-
-  // Performance State
-  const [visualMode, setVisualMode] = useState<VisualMode>('medium');
-
   // Radio State
-  const [viewMode, setViewMode] = useState<ViewMode>(savedSettings.viewMode);
-  
-  // Restore Category Object from ID
-  const allCategories = [...GENRES, ...ERAS, ...MOODS, ...EFFECTS];
-  const initialCategory = allCategories.find(c => c.id === savedSettings.selectedCategoryId) || GENRES[0];
-  const [selectedCategory, setSelectedCategory] = useState<CategoryInfo | null>(initialCategory);
-  
-  // Restore Stations List
-  const [stations, setStations] = useState<RadioStation[]>(() => {
-      try {
-          const stored = localStorage.getItem(STORAGE_KEYS.STATIONS);
-          return stored ? JSON.parse(stored) : [];
-      } catch { return []; }
-  });
-  const [visibleCount, setVisibleCount] = useState(() => {
-      try {
-          const stored = localStorage.getItem(STORAGE_KEYS.VISIBLE_COUNT);
-          return stored ? JSON.parse(stored) : INITIAL_CHUNK;
-      } catch { return INITIAL_CHUNK; }
-  });
-  
-  // Restore Last Station
-  const [currentStation, setCurrentStation] = useState<RadioStation | null>(() => {
-      try {
-          const stored = localStorage.getItem(STORAGE_KEYS.LAST_STATION);
-          return stored ? JSON.parse(stored) : null;
-      } catch { return null; }
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('genres');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryInfo | null>(GENRES[0]);
+  const [stations, setStations] = useState<RadioStation[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_CHUNK);
+  const [currentStation, setCurrentStation] = useState<RadioStation | null>(null);
   
   // AI State
   const [isAiCurating, setIsAiCurating] = useState(false);
@@ -198,9 +104,9 @@ export default function App() {
   
   // Common Player State
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(stations.length === 0); 
+  const [isLoading, setIsLoading] = useState(true); 
   const [isBuffering, setIsBuffering] = useState(false);
-  const [volume, setVolume] = useState(savedSettings.volume);
+  const [volume, setVolume] = useState(DEFAULT_VOLUME);
   
   // UI State
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -213,37 +119,36 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
 
   const [sleepTimer, setSleepTimer] = useState<number | null>(null); 
-  const [eqGains, setEqGains] = useState<number[]>(savedSettings.eqGains);
-  const [currentTheme, setCurrentTheme] = useState<ThemeName>(savedSettings.currentTheme);
-  const [baseTheme, setBaseTheme] = useState<BaseTheme>(savedSettings.baseTheme);
-  const [customCardColor, setCustomCardColor] = useState<string | null>(savedSettings.customCardColor);
-  const [language, setLanguage] = useState<Language>(savedSettings.language);
-  const [visualizerVariant, setVisualizerVariant] = useState<VisualizerVariant>(savedSettings.visualizerVariant);
-  
-  // Initialize Visualizer Settings with Energy Saver Auto-Detect (merged with saved)
-  const [vizSettings, setVizSettings] = useState<VisualizerSettings>(() => {
-      const isMobile = typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent);
-      return {
-          ...DEFAULT_VIZ_SETTINGS,
-          ...savedSettings.vizSettings,
-          energySaver: savedSettings.vizSettings.energySaver || isMobile // Default to Energy Saver Mode on mobile if not set
-      };
-  });
-
-  const [favorites, setFavorites] = useState<string[]>(() => getStoredSettings(STORAGE_KEYS.FAVORITES, []));
+  const [eqGains, setEqGains] = useState<number[]>(new Array(10).fill(0));
+  const [currentTheme, setCurrentTheme] = useState<ThemeName>('default');
+  const [baseTheme, setBaseTheme] = useState<BaseTheme>('dark');
+  const [customCardColor, setCustomCardColor] = useState<string | null>(null);
+  const [language, setLanguage] = useState<Language>('ru');
+  const [visualizerVariant, setVisualizerVariant] = useState<VisualizerVariant>('galaxy');
+  const [vizSettings, setVizSettings] = useState<VisualizerSettings>(DEFAULT_VIZ_SETTINGS);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [isIdleView, setIsIdleView] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [showDeveloperNews, setShowDeveloperNews] = useState(savedSettings.showDeveloperNews);
+  const [showDeveloperNews, setShowDeveloperNews] = useState(true);
   const [newsIndex, setNewsIndex] = useState(0);
-  const [newsFade, setNewsFade] = useState(true);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [fxSettings, setFxSettings] = useState<FxSettings>(savedSettings.fxSettings);
+  const [fxSettings, setFxSettings] = useState<FxSettings>({ reverb: 0, speed: 1.0 });
   
-  // Audio Processing State
-  const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>(savedSettings.audioEnhancements);
+  const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>({
+      compressorEnabled: false,
+      compressorThreshold: -24,
+      compressorRatio: 12,
+      bassBoost: 0,
+      loudness: 0
+  });
 
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => getStoredSettings(STORAGE_KEYS.USER_PROFILE, {
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem('streamflow_user_profile');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
       id: `guest_${Date.now()}`,
       name: 'Guest',
       avatar: null,
@@ -257,11 +162,21 @@ export default function App() {
       bio: '',
       hasAgreedToRules: false,
       filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
-  }));
+    };
+  });
   
-  const [ambience, setAmbience] = useState<AmbienceState>(savedSettings.ambience);
-  const [passport, setPassport] = useState<PassportData>(() => getStoredSettings(STORAGE_KEYS.PASSPORT, { countriesVisited: [], totalListeningMinutes: 0, nightListeningMinutes: 0, stationsFavorited: 0, unlockedAchievements: [], level: 1 }));
-  const [alarm, setAlarm] = useState<AlarmConfig>(savedSettings.alarm);
+  const [ambience, setAmbience] = useState<AmbienceState>({ 
+      rainVolume: 0, rainVariant: 'soft', fireVolume: 0, cityVolume: 0, vinylVolume: 0, is8DEnabled: false, spatialSpeed: 1 
+  });
+  const [passport, setPassport] = useState<PassportData>(() => { try { return JSON.parse(localStorage.getItem('streamflow_passport') || '') } catch { return { countriesVisited: [], totalListeningMinutes: 0, nightListeningMinutes: 0, stationsFavorited: 0, unlockedAchievements: [], level: 1 } } });
+  const [alarm, setAlarm] = useState<AlarmConfig>({ enabled: false, time: '08:00', days: [1,2,3,4,5] });
+
+  // Derived state for visual mode based on settings
+  const visualMode = useMemo(() => {
+      if (vizSettings.energySaver) return 'low';
+      if (vizSettings.performanceMode) return 'medium';
+      return 'high';
+  }, [vizSettings.energySaver, vizSettings.performanceMode]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const ambienceRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -273,11 +188,6 @@ export default function App() {
   const dryGainNodeRef = useRef<GainNode | null>(null);
   const wetGainNodeRef = useRef<GainNode | null>(null);
   const reverbNodeRef = useRef<ConvolverNode | null>(null);
-  
-  // Mastering Nodes
-  const compressorRef = useRef<DynamicsCompressorNode | null>(null);
-  const bassBoostRef = useRef<BiquadFilterNode | null>(null);
-  const loudnessRef = useRef<BiquadFilterNode | null>(null);
 
   const pannerIntervalRef = useRef<number | null>(null);
   const loadRequestIdRef = useRef<number>(0);
@@ -287,79 +197,10 @@ export default function App() {
 
   const t = TRANSLATIONS[language];
 
-  // --- PERSISTENCE EFFECT ---
   useEffect(() => {
-      const settingsToSave = {
-          viewMode,
-          selectedCategoryId: selectedCategory?.id || 'jazz',
-          volume,
-          eqGains,
-          currentTheme,
-          baseTheme,
-          customCardColor,
-          language,
-          visualizerVariant,
-          vizSettings,
-          showDeveloperNews,
-          fxSettings,
-          audioEnhancements,
-          ambience,
-          alarm
-      };
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settingsToSave));
-  }, [viewMode, selectedCategory, volume, eqGains, currentTheme, baseTheme, customCardColor, language, visualizerVariant, vizSettings, showDeveloperNews, fxSettings, audioEnhancements, ambience, alarm]);
-
-  useEffect(() => {
-      if (currentStation) {
-          localStorage.setItem(STORAGE_KEYS.LAST_STATION, JSON.stringify(currentStation));
-      }
-  }, [currentStation]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.PASSPORT, JSON.stringify(passport));
-  }, [passport]);
-
-  // Persist stations list
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.STATIONS, JSON.stringify(stations));
-      localStorage.setItem(STORAGE_KEYS.VISIBLE_COUNT, JSON.stringify(visibleCount));
-  }, [stations, visibleCount]);
-
-  // Global Reset Handler
-  const handleGlobalReset = useCallback(() => {
-      if (window.confirm(t.resetConfirm)) {
-          // Clear all app specific keys
-          Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
-          // Reload page to reset state
-          window.location.reload();
-      }
-  }, [t.resetConfirm]);
-
-  // Initialize Detect Capabilities
-  useEffect(() => {
-    setVisualMode(detectVisualMode());
-  }, []);
-
-  // News Ticker Animation Logic (10s display + 3s transition)
-  useEffect(() => {
-    const cycleNews = () => {
-      setNewsFade(false); // Fade out
-      setTimeout(() => {
+    const timer = setInterval(() => {
         setNewsIndex((prev) => prev + 1);
-        setNewsFade(true); // Fade in
-      }, 3000); // Wait for fade out (3s)
-    };
-
-    // 10s Visible + 3s Fade Out = 13s Total Interval
-    const timer = setInterval(cycleNews, 13000); 
+    }, 10000); 
     return () => clearInterval(timer);
   }, []);
 
@@ -380,6 +221,7 @@ export default function App() {
 
     const resetHideTimer = () => {
         clearTimeout(hideTimer);
+        // Check for mobile landscape (orientation landscape and height < 600px typical for phones)
         const isMobileLandscape = window.matchMedia("(orientation: landscape) and (max-height: 600px)").matches;
         
         if (isMobileLandscape) {
@@ -391,6 +233,7 @@ export default function App() {
 
     resetHideTimer();
 
+    // Reset timer on user activity
     window.addEventListener('touchstart', resetHideTimer);
     window.addEventListener('click', resetHideTimer);
     window.addEventListener('scroll', resetHideTimer);
@@ -415,36 +258,10 @@ export default function App() {
         if (!audioRef.current) return;
         const source = ctx.createMediaElementSource(audioRef.current);
 
-        // --- NEW PROCESSING CHAIN START ---
-        // 1. Compressor (Dynamics)
-        const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = audioEnhancements.compressorEnabled ? audioEnhancements.compressorThreshold : 0;
-        compressor.knee.value = 30;
-        compressor.ratio.value = audioEnhancements.compressorEnabled ? audioEnhancements.compressorRatio : 1;
-        compressor.attack.value = 0.003;
-        compressor.release.value = 0.25;
-        compressorRef.current = compressor;
-
-        // 2. HiFi Bass (LowShelf)
-        const bassBoost = ctx.createBiquadFilter();
-        bassBoost.type = 'lowshelf';
-        bassBoost.frequency.value = 65; // Focus on sub/deep bass
-        bassBoost.gain.value = audioEnhancements.bassBoost;
-        bassBoostRef.current = bassBoost;
-
-        // 3. Loudness/Presence (HighShelf for air/clarity)
-        const loudness = ctx.createBiquadFilter();
-        loudness.type = 'highshelf';
-        loudness.frequency.value = 3000; // Presence range
-        loudness.gain.value = audioEnhancements.loudness;
-        loudnessRef.current = loudness;
-        // --- NEW PROCESSING CHAIN END ---
-
         const reverb = ctx.createConvolver();
         reverbNodeRef.current = reverb;
-        // Use shorter reverb buffer for low performance mode to save memory/cpu
         const rate = ctx.sampleRate;
-        const length = rate * (visualMode === 'low' ? 0.5 : 1.2); 
+        const length = rate * 1.2; 
         const decay = 2.0;
         const impulse = ctx.createBuffer(2, length, rate);
         for (let channel = 0; channel < 2; channel++) {
@@ -476,18 +293,11 @@ export default function App() {
         pannerNodeRef.current = panner;
 
         const analyser = ctx.createAnalyser();
-        // Smaller FFT size for low power devices or Eco Mode
-        analyser.fftSize = visualMode === 'low' || vizSettings.energySaver ? 256 : 2048; 
+        analyser.fftSize = 2048; 
         analyserNodeRef.current = analyser;
 
-        // Wiring: Source -> Compressor -> Bass -> Loudness -> (Split Reverb/Dry) -> Filters -> Panner -> Analyser -> Dest
-        source.connect(compressor);
-        compressor.connect(bassBoost);
-        bassBoost.connect(loudness);
-        
-        // Output of Loudness goes to FX Split
-        loudness.connect(dryGain);
-        loudness.connect(reverb);
+        source.connect(dryGain);
+        source.connect(reverb);
         reverb.connect(wetGain);
 
         dryGain.connect(filters[0]);
@@ -503,10 +313,8 @@ export default function App() {
         panner.connect(analyser);
         analyser.connect(ctx.destination);
 
-    } catch (e) {
-        console.error("Audio Context Init Error:", e);
-    }
-  }, [visualMode, audioEnhancements, vizSettings.energySaver]);
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
       if (wetGainNodeRef.current && dryGainNodeRef.current) {
@@ -517,26 +325,6 @@ export default function App() {
           audioRef.current.playbackRate = fxSettings.speed;
       }
   }, [fxSettings]);
-
-  // Effect to update Mastering Nodes
-  useEffect(() => {
-      if (compressorRef.current) {
-          // If enabled, apply threshold/ratio. If disabled, make it transparent (threshold 0, ratio 1)
-          if (audioEnhancements.compressorEnabled) {
-              compressorRef.current.threshold.value = audioEnhancements.compressorThreshold;
-              compressorRef.current.ratio.value = audioEnhancements.compressorRatio;
-          } else {
-              compressorRef.current.threshold.value = 0; // No compression
-              compressorRef.current.ratio.value = 1; // 1:1 ratio
-          }
-      }
-      if (bassBoostRef.current) {
-          bassBoostRef.current.gain.value = audioEnhancements.bassBoost;
-      }
-      if (loudnessRef.current) {
-          loudnessRef.current.gain.value = audioEnhancements.loudness;
-      }
-  }, [audioEnhancements]);
 
   useEffect(() => {
     if (sleepTimer !== null && sleepTimer > 0) {
@@ -686,17 +474,15 @@ export default function App() {
     if (ambience.is8DEnabled) {
         let angle = 0;
         if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
-        // Reduced frequency for 8D panning on low end devices or energy saver
-        const updateRate = (visualMode === 'low' || vizSettings.energySaver) ? 100 : 30;
         pannerIntervalRef.current = window.setInterval(() => {
            if (pannerNodeRef.current) { angle += 0.02 * ambience.spatialSpeed; pannerNodeRef.current.pan.value = Math.sin(angle); }
-        }, updateRate);
+        }, 30);
     } else {
         if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
         if (pannerNodeRef.current) pannerNodeRef.current.pan.value = 0;
     }
     return () => { if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current); };
-  }, [ambience.is8DEnabled, ambience.spatialSpeed, visualMode, vizSettings.energySaver]);
+  }, [ambience.is8DEnabled, ambience.spatialSpeed]);
 
   useEffect(() => {
       ['rain', 'fire', 'city', 'vinyl'].forEach(key => {
@@ -775,22 +561,7 @@ export default function App() {
     } catch (e) { if (loadRequestIdRef.current === requestId) setIsLoading(false); }
   }, [handlePlayStation]);
 
-  // Initial Load: Restore Audio Src & Check Stations
-  useEffect(() => {
-      // 1. Ensure audio source is set if we have a station stored from last session
-      if (audioRef.current && currentStation && !audioRef.current.src) {
-          audioRef.current.src = currentStation.url_resolved;
-      }
-
-      // 2. Load stations only if we don't have any restored from storage
-      if (stations.length === 0) {
-          if (selectedCategory) {
-              loadCategory(selectedCategory, viewMode, false);
-          } else {
-              loadCategory(GENRES[0], 'genres', false);
-          }
-      }
-  }, []);
+  useEffect(() => { loadCategory(GENRES[0], 'genres', false); }, [loadCategory]);
 
   const toggleFavorite = useCallback((id: string) => {
     setFavorites(p => { const n = p.includes(id) ? p.filter(fid => fid !== id) : [...p, id]; localStorage.setItem('streamflow_favorites', JSON.stringify(n)); return n; });
@@ -799,7 +570,7 @@ export default function App() {
   const handleToggleDevNews = useCallback((val: boolean) => { setShowDeveloperNews(val); }, []);
 
   const handleProfileComplete = (profile: UserProfile) => {
-    setCurrentUser(profile); setShowProfileSetup(false);
+    setCurrentUser(profile); localStorage.setItem('streamflow_user_profile', JSON.stringify(profile)); setShowProfileSetup(false);
   };
 
   const handleAiCuration = async () => {
@@ -835,14 +606,9 @@ export default function App() {
 
   return (
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
-      <audio 
-        ref={audioRef} 
-        onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} 
-        onPause={() => setIsPlaying(false)} 
-        onWaiting={() => setIsBuffering(true)} 
-        onEnded={() => { handleNextStation(); }} 
-        crossOrigin="anonymous" 
-      />
+      <RainEffect intensity={ambience.rainVolume} />
+      <FireEffect intensity={ambience.fireVolume} />
+      <audio ref={audioRef} onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} onPause={() => setIsPlaying(false)} onWaiting={() => setIsBuffering(true)} onEnded={() => { if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } }} crossOrigin="anonymous" />
       
       {aiNotification && (
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-5 fade-in duration-300">
@@ -854,10 +620,8 @@ export default function App() {
       )}
 
       {showDeveloperNews && (
-          <div className={`absolute top-0 left-0 right-0 z-[60] bg-gradient-to-r from-primary/95 to-secondary/95 text-white py-3 shadow-lg backdrop-blur-md transition-transform duration-500 flex items-center justify-center min-h-[50px] px-4 ${isIdleView ? '-translate-y-full' : 'translate-y-0'}`}>
-            <div className={`text-[10px] md:text-xs font-black uppercase tracking-widest text-center transition-opacity duration-[3000ms] leading-tight ${newsFade ? 'opacity-100' : 'opacity-0'}`}>
-                {currentNews}
-            </div>
+          <div className={`absolute top-0 left-0 right-0 z-[60] bg-gradient-to-r from-primary/90 to-secondary/90 text-white py-1.5 overflow-hidden shadow-lg backdrop-blur-md transition-transform duration-500 ${isIdleView ? '-translate-y-full' : 'translate-y-0'}`}>
+            <div className="animate-marquee whitespace-nowrap text-[10px] font-black uppercase tracking-widest px-4">{currentNews}</div>
           </div>
       )}
 
@@ -865,10 +629,7 @@ export default function App() {
 
       <aside className={`fixed inset-y-0 left-0 z-[70] w-72 transform transition-all duration-500 glass-panel flex flex-col bg-[var(--panel-bg)] ${isIdleView ? '-translate-x-full opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`p-6 flex items-center justify-between ${showDeveloperNews ? 'mt-6' : ''}`}>
-           <div className="flex items-center gap-3">
-             <h1 className="text-2xl font-black tracking-tighter">StreamFlow</h1>
-             <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-9 h-9" visualMode={visualMode} energySaver={vizSettings.energySaver} />
-           </div>
+           <div className="flex items-center gap-3"><h1 className="text-2xl font-black tracking-tighter">StreamFlow</h1><DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-9 h-9" visualMode={visualMode} /></div>
            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 text-slate-400"><XMarkIcon className="w-6 h-6" /></button>
         </div>
         <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-left duration-300">
@@ -950,11 +711,7 @@ export default function App() {
             {selectedCategory && viewMode !== 'favorites' && (
                 <div className="mb-10 p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
                     <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40">
-                      {!vizSettings.energySaver && (
-                        <AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} />
-                      )}
-                    </div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} /></div>
                     <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
                 </div>
             )}
@@ -975,37 +732,8 @@ export default function App() {
 
         {isIdleView && (
            <div className="fixed inset-0 z-0 animate-in fade-in duration-1000 bg-[#02040a]">
-              {/* Static Background Layer */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  {/* Stars */}
-                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
-                  <div className="absolute inset-0" style={{ 
-                      backgroundImage: 'radial-gradient(white 1px, transparent 1px), radial-gradient(white 0.5px, transparent 0.5px)',
-                      backgroundSize: '50px 50px, 20px 20px',
-                      backgroundPosition: '0 0, 10px 10px',
-                      opacity: 0.2
-                  }}></div>
-
-                  {/* Earth */}
-                  <div className="absolute -bottom-[30vh] -right-[10vh] w-[80vh] h-[80vh] md:w-[110vh] md:h-[110vh] rounded-full shadow-[0_0_150px_rgba(59,130,246,0.2)] opacity-80">
-                      <img 
-                          src="https://images.unsplash.com/photo-1614730341194-75c60740a2d3?q=80&w=1000&auto=format&fit=crop" 
-                          alt="Earth"
-                          className="w-full h-full object-cover rounded-full"
-                      />
-                      <div className="absolute inset-0 rounded-full shadow-[inset_40px_40px_100px_rgba(0,0,0,0.9)]"></div>
-                  </div>
-
-                  {/* Moon */}
-                  <div className="absolute top-[15%] right-[25%] w-[8vh] h-[8vh] md:w-[12vh] md:h-[12vh] rounded-full shadow-[0_0_50px_rgba(255,255,255,0.1)] opacity-90">
-                      <img 
-                          src="https://images.unsplash.com/photo-1522030299830-16b8d3d049fe?q=80&w=500&auto=format&fit=crop" 
-                          alt="Moon"
-                          className="w-full h-full object-cover rounded-full grayscale brightness-110"
-                      />
-                      <div className="absolute inset-0 rounded-full shadow-[inset_10px_10px_30px_rgba(0,0,0,0.9)]"></div>
-                  </div>
-              </div>
+              {/* Separate Cosmic Background with Moon */}
+              <CosmicBackground />
 
               <div className="absolute inset-0 w-full h-full z-10">
                 {!vizSettings.energySaver && (
@@ -1019,7 +747,7 @@ export default function App() {
            <div className={`pointer-events-auto max-w-5xl mx-auto rounded-[2.5rem] p-4 flex flex-col shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
-                        <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} energySaver={vizSettings.energySaver} />
+                        <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
                         <div className="min-w-0">
                             <h4 className="font-black text-sm md:text-base truncate">{currentStation?.name || 'Radio Stream'}</h4>
                             <p className="text-[10px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
@@ -1075,18 +803,24 @@ export default function App() {
                 customCardColor={customCardColor} 
                 setCustomCardColor={setCustomCardColor} 
                 fxSettings={fxSettings} 
-                setFxSettings={setFxSettings}
-                audioEnhancements={audioEnhancements}
+                setFxSettings={setFxSettings} 
+                audioEnhancements={audioEnhancements} 
                 setAudioEnhancements={setAudioEnhancements}
-                onGlobalReset={handleGlobalReset} // Passed new prop
+                onGlobalReset={() => {
+                   if (window.confirm(language === 'ru' ? TRANSLATIONS.ru.resetConfirm : TRANSLATIONS.en.resetConfirm)) {
+                       localStorage.clear();
+                       window.location.reload();
+                   }
+                }}
             />
         </Suspense>
         <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /><TutorialOverlay isOpen={tutorialOpen || !!highlightFeature} onClose={() => { setTutorialOpen(false); setHighlightFeature(null); }} language={language} highlightFeature={highlightFeature} /></Suspense>
         <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
+        <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} /></Suspense>
         {showProfileSetup && <Suspense fallback={null}><ProfileSetup onComplete={handleProfileComplete} language={language} initialProfile={currentUser} onCancel={() => setShowProfileSetup(false)} /></Suspense>}
       </main>
-      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} /></Suspense>
+      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} visualMode={visualMode} /></Suspense>
     </div>
   );
 }
