@@ -1,5 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
-import { RadioStation } from "../types";
+import { GoogleGenAI } from "";
+import { RadioStation } from 
 
 const API_KEY = process.env.API_KEY || '';
 
@@ -18,7 +18,7 @@ export const curateStationList = async (
     }
 
     try {
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        
         
         // Prepare a simplified list for the model to keep tokens low
         const stationList = stations.slice(0, 50).map(s => 
@@ -37,7 +37,7 @@ export const curateStationList = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash', 
+            model:
             contents: prompt,
             config: {
                 responseMimeType: 'application/json'
