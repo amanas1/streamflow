@@ -1,54 +1,56 @@
-import { GoogleGenAI } from "";
-import { RadioStation } from 
+import { GoogleGenAI } from "@google/genai";
+import { RadioStation } from "../types";
 
-const API_KEY = process.env.API_KEY || '';
+// Access API key safely from process.env, handling potential undefined process in browser
+const API_KEY = (typeof process !== 'undefined' ? process.env.API_KEY : undefined) || '';
 
 export const isAiAvailable = (): boolean => {
     return !!API_KEY;
 };
 
 export const curateStationList = async (
-    stations: RadioStation[], 
-    category: string, 
+    stations: RadioStation[],
+    category: string,
     description: string
 ): Promise<string[]> => {
     if (!API_KEY) {
-        // Fallback if no API key: return first 15 stations
+        // Fallback: return first 15 stations if no AI available
         return stations.slice(0, 15).map(s => s.stationuuid);
     }
 
     try {
-        
-        
-        // Prepare a simplified list for the model to keep tokens low
-        const stationList = stations.slice(0, 50).map(s => 
-            `UUID: ${s.stationuuid}, Name: ${s.name}, Tags: ${s.tags}, Country: ${s.country}`
-        ).join('\n');
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
 
         const prompt = `
-        Act as a music curator. 
-        I need a list of station UUIDs from the provided list that best match this Category: "${category}" and Description: "${description}".
-        
-        List of Stations:
-        ${stationList}
-        
-        Return ONLY a raw JSON array of strings (station UUIDs). No markdown, no explanation.
-        Example: ["uuid1", "uuid2"]
-        `;
+You are an AI radio curator.
+Category: ${category}
+Description: ${description}
+Select the best matching stations from the list below based on the category and description.
+Return ONLY a valid JSON array of strings, where each string is a stationuuid.
+Do not include markdown formatting or explanations.
+
+Stations:
+${JSON.stringify(stations.map(s => ({ uuid: s.stationuuid, name: s.name, tags: s.tags })))}
+`;
 
         const response = await ai.models.generateContent({
-            model:
+            model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
-                responseMimeType: 'application/json'
+                responseMimeType: "application/json"
             }
         });
-        
+
         const text = response.text;
         if (!text) return stations.slice(0, 15).map(s => s.stationuuid);
-        
-        const parsed = JSON.parse(text);
-        return Array.isArray(parsed) ? parsed : stations.slice(0, 15).map(s => s.stationuuid);
+
+        try {
+            const parsed = JSON.parse(text);
+            return Array.isArray(parsed) ? parsed : stations.slice(0, 15).map(s => s.stationuuid);
+        } catch (e) {
+            console.error("Failed to parse AI response", e);
+            return stations.slice(0, 15).map(s => s.stationuuid);
+        }
 
     } catch (e) {
         console.error("AI Curation failed:", e);
