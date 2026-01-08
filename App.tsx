@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, VisualMode, AudioProcessSettings } from './types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
@@ -59,7 +60,9 @@ const STORAGE_KEYS = {
     PASSPORT: 'streamflow_passport',
     CHATS: 'streamflow_chats_v1',
     MESSAGES: 'streamflow_messages_v1',
-    REQUESTS: 'streamflow_requests_v1'
+    REQUESTS: 'streamflow_requests_v1',
+    STATIONS: 'streamflow_stations_cache_list_v1',
+    VISIBLE_COUNT: 'streamflow_visible_count_v1'
 };
 
 // --- PERFORMANCE UTILS ---
@@ -167,8 +170,19 @@ export default function App() {
   const initialCategory = allCategories.find(c => c.id === savedSettings.selectedCategoryId) || GENRES[0];
   const [selectedCategory, setSelectedCategory] = useState<CategoryInfo | null>(initialCategory);
   
-  const [stations, setStations] = useState<RadioStation[]>([]);
-  const [visibleCount, setVisibleCount] = useState(INITIAL_CHUNK);
+  // Restore Stations List
+  const [stations, setStations] = useState<RadioStation[]>(() => {
+      try {
+          const stored = localStorage.getItem(STORAGE_KEYS.STATIONS);
+          return stored ? JSON.parse(stored) : [];
+      } catch { return []; }
+  });
+  const [visibleCount, setVisibleCount] = useState(() => {
+      try {
+          const stored = localStorage.getItem(STORAGE_KEYS.VISIBLE_COUNT);
+          return stored ? JSON.parse(stored) : INITIAL_CHUNK;
+      } catch { return INITIAL_CHUNK; }
+  });
   
   // Restore Last Station
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(() => {
@@ -184,7 +198,7 @@ export default function App() {
   
   // Common Player State
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(stations.length === 0); 
   const [isBuffering, setIsBuffering] = useState(false);
   const [volume, setVolume] = useState(savedSettings.volume);
   
@@ -312,6 +326,12 @@ export default function App() {
   useEffect(() => {
       localStorage.setItem(STORAGE_KEYS.PASSPORT, JSON.stringify(passport));
   }, [passport]);
+
+  // Persist stations list
+  useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.STATIONS, JSON.stringify(stations));
+      localStorage.setItem(STORAGE_KEYS.VISIBLE_COUNT, JSON.stringify(visibleCount));
+  }, [stations, visibleCount]);
 
   // Global Reset Handler
   const handleGlobalReset = useCallback(() => {
@@ -755,15 +775,22 @@ export default function App() {
     } catch (e) { if (loadRequestIdRef.current === requestId) setIsLoading(false); }
   }, [handlePlayStation]);
 
-  // Initial Load - triggered only once or when category/viewmode changes from external (like deep linking if implemented)
-  useEffect(() => { 
-      // If we already have selectedCategory from state (restored), load it
-      if (selectedCategory) {
-          loadCategory(selectedCategory, viewMode, false);
-      } else {
-          loadCategory(GENRES[0], 'genres', false);
+  // Initial Load: Restore Audio Src & Check Stations
+  useEffect(() => {
+      // 1. Ensure audio source is set if we have a station stored from last session
+      if (audioRef.current && currentStation && !audioRef.current.src) {
+          audioRef.current.src = currentStation.url_resolved;
       }
-  }, [selectedCategory, viewMode, loadCategory]);
+
+      // 2. Load stations only if we don't have any restored from storage
+      if (stations.length === 0) {
+          if (selectedCategory) {
+              loadCategory(selectedCategory, viewMode, false);
+          } else {
+              loadCategory(GENRES[0], 'genres', false);
+          }
+      }
+  }, []);
 
   const toggleFavorite = useCallback((id: string) => {
     setFavorites(p => { const n = p.includes(id) ? p.filter(fid => fid !== id) : [...p, id]; localStorage.setItem('streamflow_favorites', JSON.stringify(n)); return n; });
