@@ -1,5 +1,4 @@
 
-
 import { CategoryInfo, UserProfile, Achievement, PassportData } from './types';
 import { CloudIcon, FireIcon, MusicNoteIcon, GlobeIcon, MoonIcon, HeartIcon } from './components/Icons';
 import React from 'react';
@@ -155,7 +154,18 @@ export const NEWS_MESSAGES: Record<string, string[]> = {
         "🔋 Low Battery? Turn on 'Energy Saver' in Visual settings to save power.",
         "🚀 Pump it up: Crank up the 'Compressor' for Electronic and Phonk tracks to get that punchy sound.",
         "🌌 Full Immersion: Double-click the visualizer to enter fullscreen mode.",
-        "⚙️ Settings: Rotate phone (landscape) for more features."
+        "⚙️ Settings: Rotate phone (landscape) for more features.",
+        "🌍 Global Radio: Explore thousands of stations from 'Genres', 'Eras', or 'Moods'. Use the side menu to navigate.",
+        "❤️ Favorites: Love a track? Tap the heart icon on the station card to save it for later.",
+        "💬 Private Chat: Connect with listeners worldwide. Fill out your profile and use the 'Discovery Drum' to find friends.",
+        "😴 Sleep Timer: Drift off to music. Set a timer in the Tools panel (clock icon), and the app will fade out automatically.",
+        "⏰ Smart Alarm: Wake up to your favorite vibe. Configure the alarm in the Tools panel to start your day right.",
+        "🎨 Visualizer Modes: Bored of the galaxy? Switch to 'Stage Dancer', 'Neon Lines', or 'Bubbles' in the Visualizer settings.",
+        "🎚 10-Band EQ: Fine-tune your audio. Boost the bass or enhance vocals using the Equalizer tab.",
+        "🌧 Ambience Mixer: Create your sanctuary. Layer rain, fire, or city sounds over any music track.",
+        "🎭 Profile Customization: upload your avatar and set your preferences to find like-minded music lovers.",
+        "📱 Mobile App: Install StreamFlow on your home screen for a native app experience. Look for the download icon.",
+        "💡 Tip: Use the 'Compressor' in FX to level out volume differences between radio stations."
     ],
     ru: [
         "🎛 PRO Совет: Смешайте 'HiFi Bass' и 'Loudness' во вкладке FX, чтобы добиться кристально чистого студийного качества.",
@@ -165,7 +175,18 @@ export const NEWS_MESSAGES: Record<string, string[]> = {
         "🔋 Слабая батарея? Включите 'Энергосбережение' в настройках визуала, чтобы продлить жизнь телефона.",
         "🚀 Драйв: Для электроники и фонка выкрутите 'Compressor' — это добавит плотности и кача вашим трекам.",
         "🌌 Полное погружение: Дважды кликните по визуализатору, чтобы развернуть его на весь экран.",
-        "⚙️ Настройки: Поверни телефон (ландшафт) — больше функций."
+        "⚙️ Настройки: Поверни телефон (ландшафт) — больше функций.",
+        "🌍 Глобальное Радио: Исследуйте тысячи станций через меню 'Жанры', 'Эпохи' или 'Настроение'.",
+        "❤️ Избранное: Понравилась станция? Нажмите на сердечко, чтобы сохранить её в быстрый доступ.",
+        "💬 Приватный Чат: Общайтесь с меломанами по всему миру. Заполните профиль и крутите 'Барабан Открытий' для поиска друзей.",
+        "😴 Таймер Сна: Засыпайте под музыку. Установите таймер в инструментах (иконка часов), и музыка плавно выключится.",
+        "⏰ Умный Будильник: Просыпайтесь под любимые ритмы. Настройте будильник в панели инструментов.",
+        "🎨 Режимы Визуализации: Смените 'Галактику' на 'Танцора', 'Неон' или 'Пузыри' во вкладке Визуал.",
+        "🎚 10-Полосный Эквалайзер: Настройте звук под себя. Усильте бас или выделите вокал во вкладке EQ.",
+        "🌧 Микшер Атмосферы: Создайте уют. Накладывайте звуки дождя, огня или города на любую музыку.",
+        "🎭 Ваш Профиль: Загрузите аватар и укажите интересы, чтобы находить единомышленников.",
+        "📱 Мобильное Приложение: Установите StreamFlow на экран 'Домой' для быстрого доступа. Ищите иконку скачивания.",
+        "💡 Совет: Используйте 'Компрессор' в FX, чтобы выровнять громкость разных радиостанций."
     ]
 };
 
