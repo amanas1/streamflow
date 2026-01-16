@@ -3,7 +3,6 @@ import { CategoryInfo, UserProfile, Achievement, PassportData } from './types';
 import { CloudIcon, FireIcon, MusicNoteIcon, GlobeIcon, MoonIcon, HeartIcon } from './components/Icons';
 import React from 'react';
 
-// Radio browser API mirrors
 export const RADIO_BROWSER_MIRRORS = [
     'https://all.api.radio-browser.info/json/stations',
     'https://de1.api.radio-browser.info/json/stations',
@@ -43,7 +42,6 @@ export const MOODS: CategoryInfo[] = [
     { id: 'focus', name: 'Focus', type: 'mood', color: 'from-emerald-400 to-teal-600', description: 'Background music for work and study.' },
     { id: 'romantic', name: 'Romantic', type: 'mood', color: 'from-rose-400 to-pink-600', description: 'Melodies for special moments.' },
     { id: 'dark', name: 'Club', type: 'mood', color: 'from-slate-800 to-black', description: 'Powerful beats for club enthusiasts.' },
-    // World Music
     { id: 'vietnamese', name: 'Vietnamese', type: 'mood', color: 'from-red-500 to-yellow-500', description: 'Music from Vietnam.' },
     { id: 'japanese', name: 'Japanese', type: 'mood', color: 'from-red-400 to-pink-400', description: 'Music from Japan.' },
     { id: 'russian', name: 'Russian', type: 'mood', color: 'from-blue-600 to-red-600', description: 'Music from Russia.' },
@@ -103,90 +101,20 @@ export const COUNTRIES_DATA = [
   { name: 'Uzbekistan', lat: 41.37, lon: 64.58, cities: ['Tashkent', 'Samarkand', 'Bukhara', 'Andijan', 'Namangan'] },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
-export const DEMO_USERS: UserProfile[] = [
-    { id: 'd1', name: 'Elena', avatar: 'https://i.pravatar.cc/150?u=11', credits: 10, isAnonymous: false, age: 22, country: 'Kazakhstan', city: 'Almaty', status: 'online', safetyLevel: 'green', bio: '', gender: 'female', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd2', name: 'Marcus', avatar: 'https://i.pravatar.cc/150?u=12', credits: 10, isAnonymous: false, age: 28, country: 'Germany', city: 'Berlin', status: 'online', safetyLevel: 'green', bio: '', gender: 'male', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd3', name: 'Sofia', avatar: 'https://i.pravatar.cc/150?u=13', credits: 10, isAnonymous: false, age: 24, country: 'France', city: 'Paris', status: 'offline', safetyLevel: 'green', bio: '', gender: 'female', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd4', name: 'Alex', avatar: 'https://i.pravatar.cc/150?u=14', credits: 10, isAnonymous: false, age: 31, country: 'USA', city: 'New York', status: 'online', safetyLevel: 'green', bio: '', gender: 'male', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd5', name: 'Aisha', avatar: 'https://i.pravatar.cc/150?u=15', credits: 10, isAnonymous: false, age: 20, country: 'Kazakhstan', city: 'Astana', status: 'online', safetyLevel: 'green', bio: '', gender: 'female', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd6', name: 'Liam', avatar: 'https://i.pravatar.cc/150?u=16', credits: 10, isAnonymous: false, age: 26, country: 'UK', city: 'London', status: 'offline', safetyLevel: 'green', bio: '', gender: 'male', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd7', name: 'Mika', avatar: 'https://i.pravatar.cc/150?u=17', credits: 10, isAnonymous: false, age: 23, country: 'Japan', city: 'Tokyo', status: 'online', safetyLevel: 'green', bio: '', gender: 'female', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } },
-    { id: 'd8', name: 'Kaan', avatar: 'https://i.pravatar.cc/150?u=18', credits: 10, isAnonymous: false, age: 29, country: 'Turkey', city: 'Istanbul', status: 'online', safetyLevel: 'green', bio: '', gender: 'male', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } }
-];
-
-export const ACHIEVEMENTS_LIST: Achievement[] = [
-    {
-        id: 'explorer',
-        icon: '🌍',
-        titleKey: 'Globetrotter',
-        descKey: 'Visit 5 different countries',
-        condition: (data: PassportData) => data.countriesVisited.length >= 5
-    },
-    {
-        id: 'night_owl',
-        icon: '🦉',
-        titleKey: 'Night Owl',
-        descKey: 'Listen for 60 minutes at night',
-        condition: (data: PassportData) => data.nightListeningMinutes >= 60
-    },
-    {
-        id: 'audiophile',
-        icon: '🎧',
-        titleKey: 'Audiophile',
-        descKey: 'Listen for 1000 total minutes',
-        condition: (data: PassportData) => data.totalListeningMinutes >= 1000
-    },
-    {
-        id: 'curator',
-        icon: '❤️',
-        titleKey: 'Curator',
-        descKey: 'Favorite 10 stations',
-        condition: (data: PassportData) => data.stationsFavorited >= 10
-    }
-];
+export const DEMO_USERS: UserProfile[] = [];
 
 export const NEWS_MESSAGES: Record<string, string[]> = {
     en: [
-        "🎛 PRO Tip: Mix 'HiFi Bass' and 'Loudness' in the FX tab to achieve crystal clear studio quality.",
-        "🏟 Live Concert Feel: Add 20% 'Reverb' and a touch of 'City' noise to feel like you're in a concert hall.",
-        "☕️ Cozy Vibe: Play some Jazz, add 40% 'Vinyl' crackle and 10% 'Fire' for the perfect evening.",
-        "🎧 8D Magic: Put on headphones and enable 'Spatial Audio' — feel the music rotate around you.",
-        "🔋 Low Battery? Turn on 'Energy Saver' in Visual settings to save power.",
-        "🚀 Pump it up: Crank up the 'Compressor' for Electronic and Phonk tracks to get that punchy sound.",
-        "🌌 Full Immersion: Double-click the visualizer to enter fullscreen mode.",
-        "⚙️ Settings: Rotate phone (landscape) for more features.",
-        "🌍 Global Radio: Explore thousands of stations from 'Genres', 'Eras', or 'Moods'. Use the side menu to navigate.",
-        "❤️ Favorites: Love a track? Tap the heart icon on the station card to save it for later.",
-        "💬 Private Chat: Connect with listeners worldwide. Fill out your profile and use the 'Discovery Drum' to find friends.",
-        "😴 Sleep Timer: Drift off to music. Set a timer in the Tools panel (clock icon), and the app will fade out automatically.",
-        "⏰ Smart Alarm: Wake up to your favorite vibe. Configure the alarm in the Tools panel to start your day right.",
-        "🎨 Visualizer Modes: Bored of the galaxy? Switch to 'Stage Dancer', 'Neon Lines', or 'Bubbles' in the Visualizer settings.",
-        "🎚 10-Band EQ: Fine-tune your audio. Boost the bass or enhance vocals using the Equalizer tab.",
-        "🌧 Ambience Mixer: Create your sanctuary. Layer rain, fire, or city sounds over any music track.",
-        "🎭 Profile Customization: upload your avatar and set your preferences to find like-minded music lovers.",
-        "📱 Mobile App: Install StreamFlow on your home screen for a native app experience. Look for the download icon.",
-        "💡 Tip: Use the 'Compressor' in FX to level out volume differences between radio stations."
+        "📻 Live Network: All communications are relayed in real-time. No logs exist on any server.",
+        "🔒 E2EE Active: Messages and media are encrypted end-to-end between browsers.",
+        "🌊 Ephemeral Policy: Chat history lives only in your RAM and is cleared on page refresh.",
+        "📞 P2P Calls: Voice and video streams are routed directly between peers."
     ],
     ru: [
-        "🎛 PRO Совет: Смешайте 'HiFi Bass' и 'Loudness' во вкладке FX, чтобы добиться кристально чистого студийного качества.",
-        "🏟 Эффект присутствия: Добавьте 20% 'Reverb' и немного шума 'City' — почувствуйте себя в центре концертного зала.",
-        "☕️ Ламповая атмосфера: Включите джаз, добавьте 40% 'Vinyl' и 10% 'Fire' для идеального уютного вечера.",
-        "🎧 8D Звук: Обязательно наденьте наушники и активируйте 'Spatial Audio' — музыка начнет вращаться вокруг вас.",
-        "🔋 Слабая батарея? Включите 'Энергосбережение' в настройках визуала, чтобы продлить жизнь телефона.",
-        "🚀 Драйв: Для электроники и фонка выкрутите 'Compressor' — это добавит плотности и кача вашим трекам.",
-        "🌌 Полное погружение: Дважды кликните по визуализатору, чтобы развернуть его на весь экран.",
-        "⚙️ Настройки: Поверни телефон (ландшафт) — больше функций.",
-        "🌍 Глобальное Радио: Исследуйте тысячи станций через меню 'Жанры', 'Эпохи' или 'Настроение'.",
-        "❤️ Избранное: Понравилась станция? Нажмите на сердечко, чтобы сохранить её в быстрый доступ.",
-        "💬 Приватный Чат: Общайтесь с меломанами по всему миру. Заполните профиль и крутите 'Барабан Открытий' для поиска друзей.",
-        "😴 Таймер Сна: Засыпайте под музыку. Установите таймер в инструментах (иконка часов), и музыка плавно выключится.",
-        "⏰ Умный Будильник: Просыпайтесь под любимые ритмы. Настройте будильник в панели инструментов.",
-        "🎨 Режимы Визуализации: Смените 'Галактику' на 'Танцора', 'Неон' или 'Пузыри' во вкладке Визуал.",
-        "🎚 10-Полосный Эквалайзер: Настройте звук под себя. Усильте бас или выделите вокал во вкладке EQ.",
-        "🌧 Микшер Атмосферы: Создайте уют. Накладывайте звуки дождя, огня или города на любую музыку.",
-        "🎭 Ваш Профиль: Загрузите аватар и укажите интересы, чтобы находить единомышленников.",
-        "📱 Мобильное Приложение: Установите StreamFlow на экран 'Домой' для быстрого доступа. Ищите иконку скачивания.",
-        "💡 Совет: Используйте 'Компрессор' в FX, чтобы выровнять громкость разных радиостанций."
+        "📻 Прямой эфир: Все сообщения передаются в реальном времени без логов на сервере.",
+        "🔒 E2EE Активен: Чат и медиа зашифрованы между браузерами (End-to-End).",
+        "🌊 Эфемерность: История чата живет только в оперативной памяти и удаляется при обновлении страницы.",
+        "📞 P2P Звонки: Аудио и видео потоки идут напрямую между пользователями."
     ]
 };
 
@@ -195,108 +123,20 @@ export const TRANSLATIONS: Record<string, any> = {
         genres: 'Genres', eras: 'Eras', moods: 'Moods', effects: 'Effects', favorites: 'Favorites',
         listeningTo: 'Listening to', loadMore: 'Load More',
         visualizer: 'Visualizer', eq: 'Equalizer', look: 'Appearance', ambience: 'Ambience', fx: 'Effects FX', sleep: 'Sleep Timer',
-        vizGalaxy: 'Galaxy', resetFlat: 'Reset Flat', sleepTimer: 'Sleep Timer', turnOffTimer: 'Turn Off', alarm: 'Alarm', on: 'On', off: 'Off', alarm_set: 'Alarm set to', cardColor: 'Card Tint', developerNews: 'App Tips', interfaceLanguage: 'Language',
-        findFriends: 'StreamFlow World Chat', completeProfile: 'Complete Profile', displayName: 'Display Name', gender: 'Gender', male: 'Male', female: 'Female', other: 'Other', age: 'Age', country: 'Country', city: 'City', saveAndEnter: 'Save & Enter', login: 'Login', any: 'Any', search: 'Search', knock: 'Knock', from: 'From', to: 'To',
-        tutorialWelcome: 'Welcome to StreamFlow', manualSection2: 'Radio Stream: The Core', manualSection3: 'Sleep Timer: Rest Easy', manualSection5: 'Ambience: Create Atmosphere', manualSection4: 'Chat: Connect Safely',
-        tutorialStep1: 'Choose your vibe from Genres, Eras, or Moods.', tutorialStep2: 'Tap any station card to start listening immediately.', tutorialStep3: 'Set a sleep timer or alarm here.', tutorialStep4: 'Mix ambient sounds like rain or fire.', tutorialStep5: 'Chat securely with others listening now.',
-        next: 'Next', gotIt: 'Got it', manualTitle: 'User Manual', manualIntro: 'Welcome to StreamFlow, your ultimate radio experience.', whoAreYou: 'Who are you?', createProfile: 'Create your profile to connect.', uploadPhoto: 'Upload Photo', saveProfile: 'Save Profile', joinCommunity: 'Join Community',
-        downloader: 'Music Downloader', rain: 'Rain', spatialAudio: '8D Audio', spatialHint: 'Use headphones for best effect', editProfile: 'Edit Profile',
-        vizStageDancer: 'Stage Dancer', vizTrioDancers: 'Trio Dancers', vizJourney: 'Journey', vizDigital: 'Digital', vizNeon: 'Neon', vizRings: 'Rings', vizBubbles: 'Bubbles',
-        spatialMixer: 'Spatial Mixer',
-        // Category Translations
-        jazz: 'Jazz', blues: 'Blues', rock: 'Rock', classical: 'Classical', electronic: 'Electronic', hiphop: 'Hip Hop', pop: 'Pop', islamic: 'Faith & Religion', rnb: 'R&B', reggae: 'Reggae', soul: 'Soul',
-        '60s': '60s', '70s': '70s', '80s': '80s', '90s': '90s', '00s': '00s',
-        chill: 'Chill', energy: 'Energy', focus: 'Focus', romantic: 'Romantic', dark: 'Club',
-        nature: 'Nature', storm: 'Storm', ocean: 'Ocean', forest: 'Forest',
-        // World Music
-        vietnamese: 'Vietnamese', japanese: 'Japanese', russian: 'Russian', spanish: 'Spanish', italian: 'Italian',
-        french: 'French', kazakh: 'Kazakh', kyrgyz: 'Kyrgyz', kavkaz: 'Caucasian', oriental: 'Oriental', chinese: 'Chinese',
-        // Missing Translations Added
-        speed: 'Speed', react: 'React', bright: 'Bright', performanceMode: 'Performance Mode', accentColor: 'Accent Color', reset: 'Reset',
-        privateChat: 'Free Communication Chat', authTitle: 'Communication Without Borders', authDesc: 'Connect to your personal secure hub. Chat 1-on-1 with mutual consent only. No spam, no noise.', signInGuest: 'Sign in as Guest', online: 'Online', today: 'Today', recording: 'Recording...', send: 'SEND', noUsers: 'No users found', showAll: 'Show All', knocking: 'Knocking', wantsToConnect: 'wants to connect', myDialogs: 'My Dialogs', noChats: 'No chats yet', useDiscovery: "Use 'Discovery Drum' to find people or wait for the Welcome Bot.", photoExpired: '📸 Photo expired', audioExpired: '🎤 Audio expired',
-        knockSent: 'Knock Sent!', signInAlert: 'Please sign in via the Chat Panel first.',
-        searching: 'Searching databases...', noTracks: 'No tracks found.', errorTracks: 'Error fetching tracks.', loading: 'Loading...', download: 'Download', searchTracks: 'Search tracks...',
-        infiniteTracks: 'Infinite Tracks', noAuth: 'No Auth Required', searchLib: 'Search infinite library...', all: 'All', moodChill: 'Chill', moodEnergy: 'Energy', moodPhonk: 'Phonk', moodFocus: 'Focus', moodJazz: 'Jazz', moodParty: 'Party',
-        dragRotate: 'Drag to rotate • Click name to play',
-        // Feedback
-        feedbackTitle: "Feedback",
-        writeDev: "Write to Developer",
-        rating: "Rate App",
-        tellUs: "Tell us what to improve...",
-        sendSuccess: "Message sent!",
-        manualTooltip: "User Manual",
-        showWhere: "Show location",
-        helpImprove: "Help us improve StreamFlow.",
-        // New
-        fpsLimit: 'Save Battery (30 FPS)',
-        fpsLimitDesc: 'Reduces smoothness to save battery on weak devices.',
-        ecoMode: 'Eco Mode (Stars Only)',
-        // Mastering
-        mastering: "Mastering & Dynamics",
-        compressor: "Compressor",
-        threshold: "Threshold",
-        ratio: "Ratio",
-        hifiBass: "HiFi Bass",
-        loudness: "Loudness",
-        // Energy Saver
-        energySaver: "Energy Saver",
-        energySaverDesc: "Reduces battery and CPU usage. Audio quality remains unchanged.",
-        // Global Reset
-        resetApp: "Reset App to Defaults",
-        resetConfirm: "Are you sure you want to reset all settings and data? This action cannot be undone."
+        vizGalaxy: 'Galaxy', resetFlat: 'Reset Flat', sleepTimer: 'Sleep Timer', turnOffTimer: 'Turn Off', alarm: 'Alarm', on: 'On', off: 'Off', alarm_set: 'Alarm set to', cardColor: 'Card Tint', developerNews: 'System Status', interfaceLanguage: 'Language',
+        findFriends: 'Live Relay', completeProfile: 'Join Network', displayName: 'Session Name', gender: 'Gender', male: 'Male', female: 'Female', other: 'Other', age: 'Age', country: 'Country', city: 'City', saveAndEnter: 'Join Live', login: 'Login', any: 'Any', search: 'Search', knock: 'Connect',
+        tutorialWelcome: 'Welcome to StreamFlow', gotIt: 'Got it', privacyDisclaimer: 'Messages are ephemeral. No data is stored on servers. F5 wipes all traces.',
+        next: 'Next', manualTitle: 'System Policy', manualIntro: 'Pure real-time relay. No archives. No persistence.', whoAreYou: 'Join Hub', createProfile: 'Set a session name to connect.', uploadPhoto: 'Photo', saveProfile: 'Start Session', joinCommunity: 'Connect',
+        privateChat: 'REAL-TIME RELAY', authTitle: 'Ephemeral Sessions', authDesc: 'Zero persistence communication. No message history is kept on server or local storage.', signInGuest: 'Enter Relay', online: 'Online Now', today: 'Session', recording: 'Streaming...', send: 'TRANSMIT', noUsers: 'Alone in space', showAll: 'Refresh'
     },
     ru: {
         genres: 'Жанры', eras: 'Эпохи', moods: 'Настроение', effects: 'Эффекты', favorites: 'Избранное',
         listeningTo: 'В эфире', loadMore: 'Загрузить еще',
         visualizer: 'Визуал', eq: 'Звук', look: 'Стиль', ambience: 'Атмосфера', fx: 'Эффекты', sleep: 'Сон',
-        vizGalaxy: 'Космос', resetFlat: 'Сброс', sleepTimer: 'Режим сна', turnOffTimer: 'Отключить', alarm: 'Будильник', on: 'Вкл', off: 'Выкл', alarm_set: 'Разбудить в', cardColor: 'Оттенок блоков', developerNews: 'Советы', interfaceLanguage: 'Язык',
-        findFriends: 'Всемирный чат StreamFlow', completeProfile: 'Ваш профиль', displayName: 'Ваше имя', gender: 'Пол', male: 'Мужской', female: 'Женский', other: 'Другой', age: 'Возраст', country: 'Страна', city: 'Город', saveAndEnter: 'Войти', login: 'Логин', any: 'Неважно', search: 'Найти', knock: 'Постучаться', from: 'От', to: 'До',
-        tutorialWelcome: 'Добро пожаловать', manualSection2: 'Радио: Сердце Эфира', manualSection3: 'Таймер Сна: Отдыхайте', manualSection5: 'Атмосфера: Создайте Уют', manualSection4: 'Чат: Общайтесь Безопасно',
-        tutorialStep1: 'Выберите настроение, жанр или эпоху.', tutorialStep2: 'Нажмите на любую станцию, чтобы начать.', tutorialStep3: 'Здесь можно поставить таймер или будильник.', tutorialStep4: 'Смешивайте звуки дождя или огня.', tutorialStep5: 'Безопасный чат с другими слушателями.',
-        next: 'Далее', gotIt: 'Понятно', manualTitle: 'Руководство', manualIntro: 'Добро пожаловать в StreamFlow — ваш идеальный радио-опыт.', whoAreYou: 'Кто вы?', createProfile: 'Создайте профиль для общения.', uploadPhoto: 'Загрузить фото', saveProfile: 'Сохранить', joinCommunity: 'Присоединиться',
-        downloader: 'Загрузчик Музыки', rain: 'Дождь', spatialAudio: '8D Звук', spatialHint: 'В наушниках лучше', editProfile: 'Ред. Профиль',
-        vizStageDancer: 'Танцор', vizTrioDancers: 'Трио', vizJourney: 'Полет', vizDigital: 'Цифра', vizNeon: 'Неон', vizRings: 'Кольца', vizBubbles: 'Пузыри',
-        spatialMixer: 'Звуковая Сцена',
-        // Category Translations
-        jazz: 'Джаз', blues: 'Блюз', rock: 'Рок', classical: 'Классика', electronic: 'Электроника', hiphop: 'Хип-хоп', pop: 'Поп', islamic: 'Религия', rnb: 'R&B', reggae: 'Регги', soul: 'Соул',
-        '60s': '60-е', '70s': '70-е', '80s': '80-е', '90s': '90-е', '00s': '00-е',
-        chill: 'Чилл', energy: 'Энергия', focus: 'Фокус', romantic: 'Романтика', dark: 'Клуб',
-        nature: 'Природа', storm: 'Шторм', ocean: 'Океан', forest: 'Лес',
-        // World Music
-        vietnamese: 'Вьетнамская', japanese: 'Японская', russian: 'Русская', spanish: 'Испанская', italian: 'Итальянская',
-        french: 'Французская', kazakh: 'Казахская', kyrgyz: 'Кыргызская', kavkaz: 'Кавказская', oriental: 'Восточная', chinese: 'Китайская',
-        // Missing Translations Added
-        speed: 'Скорость', react: 'Реакция', bright: 'Яркость', performanceMode: 'Режим', accentColor: 'Акцент', reset: 'Сброс',
-        privateChat: 'Чат свободного общения', authTitle: 'Общение без границ', authDesc: 'Ваш безопасный хаб. Общение 1-на-1 только по взаимному согласию. Без спама и шума.', signInGuest: 'Войти как Гость', online: 'Онлайн', сегодня: 'Сегодня', recording: 'Запись...', send: 'ОТПРАВИТЬ', noUsers: 'Никого не найдено', showAll: 'Показать всех', knocking: 'Стучится', wantsToConnect: 'хочет общаться', myDialogs: 'Мои Диалоги', noChats: 'Пока нет чатов', useDiscovery: "Используйте 'Барабан Открытий' или ждите приветствия.", photoExpired: '📸 Фото истекло', audioExpired: '🎤 Аудио истекло',
-        knockSent: 'Отправлено!', signInAlert: 'Пожалуйста, сначала войдите через панель чата.',
-        searching: 'Поиск в базах...', noTracks: 'Треки не найдены.', errorTracks: 'Ошибка загрузки.', loading: 'Загрузка...', download: 'Скачать', searchTracks: 'Поиск треков...',
-        infiniteTracks: 'Бесконечные Треки', noAuth: 'Без регистрации', searchLib: 'Поиск в библиотеке...', all: 'Все', moodChill: 'Чилл', moodEnergy: 'Энергия', moodPhonk: 'Фонк', moodFocus: 'Фокус', moodJazz: 'Джаз', moodParty: 'Вечеринка',
-        dragRotate: 'Тяни для вращения • Клик для игры',
-        // Feedback
-        feedbackTitle: "Отзывы",
-        writeDev: "Написать разработчику",
-        rating: "Рейтинг",
-        tellUs: "Ваши пожелания и замечания...",
-        sendSuccess: "Сообщение отправлено!",
-        manualTooltip: "Мануал",
-        showWhere: "Показать где",
-        helpImprove: "Помогите нам улучшить StreamFlow.",
-        // New
-        fpsLimit: 'Экономия (30 FPS)',
-        fpsLimitDesc: 'Снижает плавность для слабых устройств.',
-        ecoMode: 'Эко Режим (Звезды)',
-        // Mastering
-        mastering: "Мастеринг и Динамика",
-        compressor: "Компрессор",
-        threshold: "Порог",
-        ratio: "Сжатие",
-        hifiBass: "HiFi Бас",
-        loudness: "Глубина (Loud)",
-        // Energy Saver
-        energySaver: "Энергосбережение",
-        energySaverDesc: "Снижает нагрузку на батарею и CPU. Качество звука не меняется.",
-        // Global Reset
-        resetApp: "Сброс настроек (Reset)",
-        resetConfirm: "Вы уверены, что хотите сбросить все настройки и данные приложения? Это действие нельзя отменить."
+        vizGalaxy: 'Космос', resetFlat: 'Сброс', sleepTimer: 'Режим сна', turnOffTimer: 'Отключить', alarm: 'Будильник', on: 'Вкл', off: 'Выкл', alarm_set: 'Разбудить в', cardColor: 'Оттенок блоков', developerNews: 'Статус Системы', interfaceLanguage: 'Язык',
+        findFriends: 'Живая Сеть', completeProfile: 'Вход в эфир', displayName: 'Имя Сессии', gender: 'Пол', male: 'Мужской', female: 'Женский', other: 'Другой', age: 'Возраст', country: 'Страна', city: 'Город', saveAndEnter: 'Войти', login: 'Логин', any: 'Неважно', search: 'Найти', knock: 'Связаться',
+        tutorialWelcome: 'Добро пожаловать', gotIt: 'Понятно', privacyDisclaimer: 'Сообщения эфемерны. История не сохраняется. F5 удаляет всё.',
+        next: 'Далее', manualTitle: 'Политика Системы', manualIntro: 'Чистый ретранслятор. Без архивов. Без следов.', whoAreYou: 'Вход', createProfile: 'Укажите имя для текущей сессии.', uploadPhoto: 'Фото', saveProfile: 'Начать', joinCommunity: 'Подключиться',
+        privateChat: 'ЖИВОЙ РЕТРАНСЛЯТОР', authTitle: 'Эфемерные Сессии', authDesc: 'Общение без сохранения истории. Данные не пишутся ни на диск, ни на сервер.', signInGuest: 'Войти в Сеть', online: 'В Сети', today: 'Сессия', recording: 'Стриминг...', send: 'ОТПРАВИТЬ', noUsers: 'Тишина в эфире', showAll: 'Обновить'
     }
 };

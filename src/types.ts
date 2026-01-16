@@ -41,12 +41,9 @@ export interface VisualizerSettings {
   speed: number;
   autoIdle: boolean;
   performanceMode: boolean;
-  danceArmIntensity?: number;
-  danceLegIntensity?: number;
-  danceHeadIntensity?: number;
-  fpsLimit?: boolean;
-  isDisabled?: boolean;
   energySaver: boolean;
+  // Fix: Added missing property fpsLimit
+  fpsLimit?: boolean;
 }
 
 export interface FxSettings {
@@ -66,80 +63,7 @@ export type ThemeName = 'default' | 'emerald' | 'midnight' | 'cyber' | 'volcano'
 export type BaseTheme = 'dark' | 'light' | 'auto';
 export type Language = 'en' | 'ru';
 
-// --- UPDATED USER PROFILE ---
-export interface UserProfile {
-  id: string;
-  name: string;
-  avatar: string | null;
-  credits: number; // Wallet Balance
-  isAnonymous: boolean;
-  age: number;
-  country: string;
-  city: string;
-  gender: 'male' | 'female' | 'other';
-  status: 'online' | 'offline';
-  // Fix: Added lastSeen property to UserProfile interface to support presence tracking
-  lastSeen?: number;
-  safetyLevel: 'green' | 'yellow' | 'red';
-  blockedUsers: string[];
-  bio: string;
-  hasAgreedToRules: boolean;
-  isAuthenticated?: boolean;
-  email?: string;
-  filters: {
-    minAge: number;
-    maxAge: number;
-    countries: string[];
-    languages: string[];
-    genders: (string | 'any')[];
-    soundEnabled: boolean;
-  };
-}
-
-// --- EPHEMERAL CHAT TYPES ---
-export interface ChatMessage {
-  id: string;
-  sessionId: string; 
-  senderId: string;
-  text?: string;
-  imageBase64?: string; // Stored in RAM only
-  image?: string; // Compatibility alias
-  audioBase64?: string; // Stored in RAM only
-  timestamp: number;
-  expiresAt?: number; // RAM deletion time
-  isSystem?: boolean;
-  cost?: number; // Credit cost
-  read?: boolean;
-}
-
-export interface ChatSession {
-  id: string; 
-  participants: string[]; 
-  lastActivity: number;
-  updatedAt?: number;
-  lastMessage?: ChatMessage | null;
-}
-
-export interface ChatRequest {
-  id: string;
-  fromUserId: string;
-  toUserId: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  timestamp: number;
-  cost?: number; 
-}
-
-// Add export keyword for these interfaces
-export interface Track {
-  id: string;
-  title: string;
-  artist: string;
-  audioUrl: string; 
-  coverUrl: string; 
-  duration: number; 
-  tags: string[];
-}
-
+// Fix: Added missing exported member AmbienceState
 export interface AmbienceState {
   rainVolume: number;
   rainVariant: 'soft' | 'roof'; 
@@ -150,6 +74,14 @@ export interface AmbienceState {
   spatialSpeed: number; 
 }
 
+// Fix: Added missing exported member AlarmConfig
+export interface AlarmConfig {
+  enabled: boolean;
+  time: string; 
+  days: number[]; 
+}
+
+// Fix: Added missing exported member PassportData
 export interface PassportData {
   countriesVisited: string[];
   totalListeningMinutes: number;
@@ -159,6 +91,7 @@ export interface PassportData {
   level: number;
 }
 
+// Fix: Added missing exported member Achievement
 export interface Achievement {
   id: string;
   icon: string;
@@ -167,17 +100,49 @@ export interface Achievement {
   condition: (data: PassportData) => boolean;
 }
 
-export interface BottleMessage {
+export interface UserProfile {
   id: string;
-  text: string;
-  senderName: string;
-  senderCountry: string;
-  timestamp: number;
-  isFound: boolean;
+  name: string;
+  avatar: string | null;
+  age: number;
+  country: string;
+  city: string;
+  gender: 'male' | 'female' | 'other';
+  status: 'online' | 'offline';
+  lastSeen?: number;
+  safetyLevel: 'green' | 'yellow' | 'red';
+  blockedUsers: string[];
+  bio: string;
+  hasAgreedToRules: boolean;
+  isAuthenticated?: boolean;
+  email?: string;
+  // Fix: Added missing properties credits, isAnonymous, and filters
+  credits?: number;
+  isAnonymous?: boolean;
+  filters?: {
+    minAge: number;
+    maxAge: number;
+    countries: string[];
+    languages: string[];
+    genders: (string | 'any')[];
+    soundEnabled: boolean;
+  };
 }
 
-export interface AlarmConfig {
-  enabled: boolean;
-  time: string; 
-  days: number[]; 
+export interface ChatMessage {
+  id: string;
+  sessionId: string; 
+  senderId: string;
+  text?: string;
+  audioBase64?: string;
+  timestamp: number;
+  read: boolean;
+}
+
+export interface ChatSession {
+  id: string; 
+  participants: string[]; 
+  lastMessage: ChatMessage | null;
+  createdAt: number;
+  updatedAt: number;
 }

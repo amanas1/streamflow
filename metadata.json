@@ -1,8 +1,8 @@
 {
   "name": "StreamFlowPro",
-  "description": "A pure global radio streaming application.",
+  "description": "Global Stateless Real-Time Communication Hub.",
   "requestFramePermissions": [
-    "microphone",
-    "camera"
+    "camera",
+    "microphone"
   ]
 }

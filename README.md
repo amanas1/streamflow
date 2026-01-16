@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# StreamFlow Pro - Production Blind Relay
 
-This contains everything you need to run your app locally.
+Strict real-time communication platform built with **E2EE** and **WebRTC**.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1uZXYt15TuoDiydf43_tp-PO6Y94HZVLN
+## 🛡 Security Architecture
+- **Stateless Blind Relay**: The Node.js server does not possess a database or persistent storage. It routes encrypted packets between peer sessions in RAM.
+- **Client-Side Encryption**: 256-bit AES-GCM via Web Crypto API. Handshake via ECDH.
+- **Ephemeral UI**: All message history is stored in React state. Refreshing the browser permanently clears all local session data.
+- **Peer-to-Peer Media**: Voice and Video calls utilize RTCPeerConnection for direct encrypted streams.
 
-## Run Locally
+## 🛠 Deployment
 
-**Prerequisites:**  Node.js
+### 1. Hardened Relay Server
+```bash
+cd server
+npm install
+node server.js
+```
 
+### 2. Frontend
+```bash
+npm install
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📱 Compliance & Permissions
+- Access to **Microphone** and **Camera** is strictly for active WebRTC calls and voice messages.
+- No device fingerprinting or background data collection is implemented.
