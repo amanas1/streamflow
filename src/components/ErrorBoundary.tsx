@@ -1,7 +1,12 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
-  children: ReactNode;
+  /**
+   * Fix: Made children optional to prevent missing property errors in parent components (like App.tsx).
+   * In some TypeScript/React configurations, nested JSX elements are not automatically inferred
+   * to satisfy a required 'children' prop on the attribute object.
+   */
+  children?: ReactNode;
 }
 
 interface State {
@@ -10,12 +15,18 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  /**
+   * Fix: Explicitly declare the state property. This resolves "Property 'state' does not exist 
+   * on type 'ErrorBoundary'" errors that can occur when TypeScript strict mode or specific 
+   * compiler options are used with React class components.
+   */
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
+
   constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -27,6 +38,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
+    /**
+     * Fix: State access is now correctly typed and recognized by the compiler.
+     */
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-[#070b14] text-white p-6 text-center font-sans">
@@ -53,6 +67,9 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
+    /**
+     * Fix: children is now accessible via this.props as expected for a React.Component.
+     */
     return this.props.children;
   }
 }
