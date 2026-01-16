@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   ThemeName, BaseTheme, Language, VisualizerVariant, VisualizerSettings, 
-  AmbienceState, PassportData, AlarmConfig, FxSettings, AudioProcessSettings 
+  AmbienceState, AlarmConfig, FxSettings, AudioProcessSettings 
 } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { 
@@ -35,11 +35,8 @@ interface ToolsPanelProps {
   setShowDeveloperNews: (show: boolean) => void;
   ambience: AmbienceState;
   setAmbience: (a: AmbienceState) => void;
-  passport: PassportData;
   alarm: AlarmConfig;
   setAlarm: (a: AlarmConfig) => void;
-  onThrowBottle: () => void;
-  onCheckBottle: () => void;
   customCardColor: string | null;
   setCustomCardColor: (c: string | null) => void;
   fxSettings: FxSettings;
@@ -80,7 +77,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   visualizerVariant, setVisualizerVariant, vizSettings, setVizSettings,
   onStartTutorial, onOpenManual, onOpenProfile,
   showDeveloperNews, setShowDeveloperNews,
-  ambience, setAmbience, passport, alarm, setAlarm, onThrowBottle, onCheckBottle,
+  ambience, setAmbience, alarm, setAlarm,
   customCardColor, setCustomCardColor,
   fxSettings, setFxSettings,
   audioEnhancements, setAudioEnhancements,

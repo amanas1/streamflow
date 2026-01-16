@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
-import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
-import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
+import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
+import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, NEWS_MESSAGES } from './constants';
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
@@ -9,10 +9,12 @@ import DancingAvatar from './components/DancingAvatar';
 import CosmicBackground from './components/CosmicBackground';
 import RainEffect from './components/RainEffect';
 import FireEffect from './components/FireEffect';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useAudioChain } from './hooks/useAudioChain';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, MaximizeIcon, XMarkIcon, DownloadIcon,
-  SwatchIcon, EnvelopeIcon, LifeBuoyIcon 
+  EnvelopeIcon, LifeBuoyIcon 
 } from './components/Icons';
 
 // --- LAZY LOADED BRANCHES ---
@@ -46,14 +48,21 @@ const TRICKLE_STEP = 5;
 const AUTO_TRICKLE_LIMIT = 15;
 const PAGE_SIZE = 10;
 
-// Replaced with verified direct MP3 links from Pixabay to fix playback errors
+// Ambience URLs
 const AMBIENCE_URLS = {
-    rain_soft: 'https://cdn.pixabay.com/audio/2022/03/10/audio_5c0587f79a.mp3', // Gentle Rain
-    rain_roof: 'https://cdn.pixabay.com/audio/2022/02/18/audio_8233f0190a.mp3', // Rain on Roof
-    fire: 'https://cdn.pixabay.com/audio/2021/09/06/audio_73e72eb298.mp3', // Fireplace Crackle
-    city: 'https://cdn.pixabay.com/audio/2021/08/04/audio_15239a5153.mp3', // City Ambience
-    vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' // Vinyl Static
+    rain_soft: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
+    rain_roof: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
+    fire: 'https://cdn.pixabay.com/audio/2022/03/10/audio_5b33d06b38.mp3', 
+    city: 'https://soundbible.com/mp3/City_Traffic-Sound_Explorer-1662968325.mp3',
+    vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' 
 };
+
+// Toast Notification Type
+interface Toast {
+    message: string;
+    type: 'info' | 'error' | 'success';
+    id: number;
+}
 
 const StationCard = React.memo(({ 
   station, isSelected, isFavorite, onPlay, onToggleFavorite, index 
@@ -89,8 +98,7 @@ const StationCard = React.memo(({
   );
 });
 
-export default function App() {
-  
+const AppContent: React.FC = () => {
   // Radio State
   const [viewMode, setViewMode] = useState<ViewMode>('genres');
   const [selectedCategory, setSelectedCategory] = useState<CategoryInfo | null>(GENRES[0]);
@@ -134,6 +142,7 @@ export default function App() {
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [fxSettings, setFxSettings] = useState<FxSettings>({ reverb: 0, speed: 1.0 });
+  const [toasts, setToasts] = useState<Toast[]>([]); // Added Toasts State
   
   const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>({
       compressorEnabled: false,
@@ -152,6 +161,8 @@ export default function App() {
       id: `guest_${Date.now()}`,
       name: 'Guest',
       avatar: null,
+      credits: 0,
+      isAnonymous: true,
       age: 18,
       country: 'USA',
       city: 'New York',
@@ -168,41 +179,35 @@ export default function App() {
   const [ambience, setAmbience] = useState<AmbienceState>({ 
       rainVolume: 0, rainVariant: 'soft', fireVolume: 0, cityVolume: 0, vinylVolume: 0, is8DEnabled: false, spatialSpeed: 1 
   });
-  const [passport, setPassport] = useState<PassportData>(() => { try { return JSON.parse(localStorage.getItem('streamflow_passport') || '') } catch { return { countriesVisited: [], totalListeningMinutes: 0, nightListeningMinutes: 0, stationsFavorited: 0, unlockedAchievements: [], level: 1 } } });
   const [alarm, setAlarm] = useState<AlarmConfig>({ enabled: false, time: '08:00', days: [1,2,3,4,5] });
-
-  // Derived state for visual mode based on settings
-  const visualMode = useMemo(() => {
-      if (vizSettings.energySaver) return 'low';
-      if (vizSettings.performanceMode) return 'medium';
-      return 'high';
-  }, [vizSettings.energySaver, vizSettings.performanceMode]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const ambienceRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserNodeRef = useRef<AnalyserNode | null>(null);
-  const pannerNodeRef = useRef<StereoPannerNode | null>(null);
-  const filtersRef = useRef<BiquadFilterNode[]>([]);
-  
-  const dryGainNodeRef = useRef<GainNode | null>(null);
-  const wetGainNodeRef = useRef<GainNode | null>(null);
-  const reverbNodeRef = useRef<ConvolverNode | null>(null);
-
   const pannerIntervalRef = useRef<number | null>(null);
   const loadRequestIdRef = useRef<number>(0);
   const sleepIntervalRef = useRef<number | null>(null);
   const trickleTimerRef = useRef<number | null>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
 
+  // --- AUDIO CHAIN HOOK ---
+  const { analyserNode, pannerNode, initAudio, resumeContext } = useAudioChain(audioRef, fxSettings, eqGains);
+
   const t = TRANSLATIONS[language];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-        setNewsIndex((prev) => prev + 1);
-    }, 10000); 
-    return () => clearInterval(timer);
+  // Helper: Toast Notification
+  const showToast = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
+      const id = Date.now();
+      setToasts(prev => [...prev, { message, type, id }]);
+      setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id));
+      }, 4000);
   }, []);
+
+  const visualMode = useMemo(() => {
+      if (vizSettings.energySaver) return 'low';
+      if (vizSettings.performanceMode) return 'medium';
+      return 'high';
+  }, [vizSettings.energySaver, vizSettings.performanceMode]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -213,119 +218,53 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // Auto-hide sidebar in mobile landscape after inactivity
-  useEffect(() => {
-    if (!sidebarOpen) return;
-
-    let hideTimer: number;
-
-    const resetHideTimer = () => {
-        clearTimeout(hideTimer);
-        // Check for mobile landscape (orientation landscape and height < 600px typical for phones)
-        const isMobileLandscape = window.matchMedia("(orientation: landscape) and (max-height: 600px)").matches;
+  // Audio Lifecycle
+  const handlePlayStation = useCallback((station: RadioStation) => {
+    // 1. Init Audio Graph (Only once)
+    initAudio();
+    // 2. Ensure context is running (Unlock autoplay)
+    resumeContext();
+    
+    setCurrentStation(station);
+    setIsPlaying(true);
+    setIsBuffering(true);
+    
+    if (audioRef.current) {
+        audioRef.current.src = station.url_resolved;
+        audioRef.current.crossOrigin = "anonymous";
+        audioRef.current.playbackRate = fxSettings.speed; 
         
-        if (isMobileLandscape) {
-            hideTimer = window.setTimeout(() => {
-                setSidebarOpen(false);
-            }, 5000);
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Playback failed:", error);
+                setIsPlaying(false);
+                setIsBuffering(false);
+                showToast(language === 'ru' ? 'Ошибка воспроизведения потока' : 'Stream connection failed', 'error');
+            });
         }
-    };
+    }
+  }, [initAudio, resumeContext, fxSettings.speed, language, showToast]);
 
-    resetHideTimer();
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (!currentStation) {
+        if (stations.length) handlePlayStation(stations[0]);
+        return;
+    }
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      resumeContext();
+      audioRef.current.play().catch(e => {
+          showToast(language === 'ru' ? 'Не удалось возобновить' : 'Could not resume playback', 'error');
+      });
+      setIsPlaying(true);
+    }
+  };
 
-    // Reset timer on user activity
-    window.addEventListener('touchstart', resetHideTimer);
-    window.addEventListener('click', resetHideTimer);
-    window.addEventListener('scroll', resetHideTimer);
-    window.addEventListener('mousemove', resetHideTimer);
-    window.addEventListener('resize', resetHideTimer);
-
-    return () => {
-        clearTimeout(hideTimer);
-        window.removeEventListener('touchstart', resetHideTimer);
-        window.removeEventListener('click', resetHideTimer);
-        window.removeEventListener('scroll', resetHideTimer);
-        window.removeEventListener('mousemove', resetHideTimer);
-        window.removeEventListener('resize', resetHideTimer);
-    };
-  }, [sidebarOpen]);
-
-  const initAudioContext = useCallback(() => {
-    if (audioContextRef.current) return;
-    try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
-        audioContextRef.current = ctx;
-        if (!audioRef.current) return;
-        const source = ctx.createMediaElementSource(audioRef.current);
-
-        const reverb = ctx.createConvolver();
-        reverbNodeRef.current = reverb;
-        const rate = ctx.sampleRate;
-        const length = rate * 1.2; 
-        const decay = 2.0;
-        const impulse = ctx.createBuffer(2, length, rate);
-        for (let channel = 0; channel < 2; channel++) {
-            const data = impulse.getChannelData(channel);
-            for (let i = 0; i < length; i++) {
-                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
-            }
-        }
-        reverb.buffer = impulse;
-
-        const dryGain = ctx.createGain(); 
-        const wetGain = ctx.createGain(); 
-        wetGain.gain.value = 0; 
-        dryGainNodeRef.current = dryGain;
-        wetGainNodeRef.current = wetGain;
-
-        const frequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-        const filters = frequencies.map(freq => {
-            const f = ctx.createBiquadFilter();
-            f.type = 'peaking';
-            f.frequency.value = freq;
-            f.Q.value = 1;
-            f.gain.value = 0;
-            return f;
-        });
-        filtersRef.current = filters;
-
-        const panner = ctx.createStereoPanner();
-        pannerNodeRef.current = panner;
-
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048; 
-        analyserNodeRef.current = analyser;
-
-        source.connect(dryGain);
-        source.connect(reverb);
-        reverb.connect(wetGain);
-
-        dryGain.connect(filters[0]);
-        wetGain.connect(filters[0]);
-
-        let node: AudioNode = filters[0];
-        for (let i = 1; i < filters.length; i++) {
-            node.connect(filters[i]);
-            node = filters[i];
-        }
-
-        node.connect(panner);
-        panner.connect(analyser);
-        analyser.connect(ctx.destination);
-
-    } catch (e) {}
-  }, []);
-
-  useEffect(() => {
-      if (wetGainNodeRef.current && dryGainNodeRef.current) {
-          wetGainNodeRef.current.gain.value = fxSettings.reverb;
-          dryGainNodeRef.current.gain.value = 1 - (fxSettings.reverb * 0.4); 
-      }
-      if (audioRef.current) {
-          audioRef.current.playbackRate = fxSettings.speed;
-      }
-  }, [fxSettings]);
-
+  // Sleep Timer
   useEffect(() => {
     if (sleepTimer !== null && sleepTimer > 0) {
       sleepIntervalRef.current = window.setInterval(() => {
@@ -335,6 +274,7 @@ export default function App() {
             if (next <= 0) {
               setIsPlaying(false);
               if (audioRef.current) audioRef.current.pause();
+              showToast(language === 'ru' ? 'Таймер сна завершен' : 'Sleep timer finished', 'info');
               return null;
             }
             return next;
@@ -346,24 +286,9 @@ export default function App() {
       if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current);
     }
     return () => { if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current); };
-  }, [sleepTimer]);
+  }, [sleepTimer, language, showToast]);
 
-  const handlePlayStation = useCallback((station: RadioStation) => {
-    initAudioContext();
-    if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
-    
-    setCurrentStation(station);
-    setIsPlaying(true);
-    setIsBuffering(true);
-    
-    if (audioRef.current) {
-        audioRef.current.src = station.url_resolved;
-        audioRef.current.crossOrigin = "anonymous";
-        audioRef.current.playbackRate = fxSettings.speed; 
-        audioRef.current.play().catch(() => {});
-    }
-  }, [initAudioContext, fxSettings.speed]);
-
+  // Alarm Check
   useEffect(() => {
     const checkAlarm = setInterval(() => {
       if (alarm.enabled) {
@@ -374,116 +299,15 @@ export default function App() {
         if (currentTime === alarm.time && alarm.days.includes(currentDay)) {
            if (!isPlaying && stations.length > 0) {
              handlePlayStation(currentStation || stations[0]);
+             showToast(language === 'ru' ? 'Будильник сработал!' : 'Alarm activated!', 'success');
            }
         }
       }
     }, 1000);
     return () => clearInterval(checkAlarm);
-  }, [alarm, isPlaying, currentStation, stations, handlePlayStation]);
+  }, [alarm, isPlaying, currentStation, stations, handlePlayStation, language, showToast]);
 
-  useEffect(() => {
-    let idleTimer: number;
-    let wakeGracePeriodTimer: number;
-    let canWake = false; 
-
-    const cleanup = () => { clearTimeout(idleTimer); clearTimeout(wakeGracePeriodTimer); };
-
-    if (isIdleView) {
-        canWake = false;
-        wakeGracePeriodTimer = window.setTimeout(() => { canWake = true; }, 100);
-        const handleWake = (e: Event) => { if (!canWake) return; setIsIdleView(false); };
-        window.addEventListener('mousemove', handleWake);
-        window.addEventListener('mousedown', handleWake);
-        window.addEventListener('keydown', handleWake);
-        window.addEventListener('touchstart', handleWake);
-        window.addEventListener('click', handleWake);
-        return () => {
-            cleanup();
-            window.removeEventListener('mousemove', handleWake);
-            window.removeEventListener('mousedown', handleWake);
-            window.removeEventListener('keydown', handleWake);
-            window.removeEventListener('touchstart', handleWake);
-            window.removeEventListener('click', handleWake);
-        };
-    } else {
-        if (!vizSettings.autoIdle) return;
-        const goIdle = () => {
-            if (toolsOpen || chatOpen || manualOpen || tutorialOpen || showProfileSetup || downloadModalOpen || feedbackOpen) return;
-            setIsIdleView(true);
-        };
-        const resetTimer = () => { clearTimeout(idleTimer); idleTimer = window.setTimeout(goIdle, 30000); };
-        const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
-        events.forEach(e => window.addEventListener(e, resetTimer));
-        resetTimer(); 
-        return () => { cleanup(); events.forEach(e => window.removeEventListener(e, resetTimer)); };
-    }
-  }, [isIdleView, vizSettings.autoIdle, toolsOpen, chatOpen, manualOpen, tutorialOpen, showProfileSetup, downloadModalOpen, feedbackOpen]);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (!currentStation) {
-        if (stations.length) handlePlayStation(stations[0]);
-        return;
-    }
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
-      audioRef.current.play().catch(() => {});
-    }
-  };
-
-  const handleNextStation = useCallback(() => {
-      if (!stations.length) return;
-      const currentIndex = currentStation ? stations.findIndex(s => s.stationuuid === currentStation.stationuuid) : -1;
-      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % stations.length;
-      handlePlayStation(stations[nextIndex]);
-  }, [stations, currentStation, handlePlayStation]);
-
-  const handlePreviousStation = useCallback(() => {
-      if (!stations.length) return;
-      const currentIndex = currentStation ? stations.findIndex(s => s.stationuuid === currentStation.stationuuid) : -1;
-      const prevIndex = currentIndex === -1 ? stations.length - 1 : (currentIndex - 1 + stations.length) % stations.length;
-      handlePlayStation(stations[prevIndex]);
-  }, [stations, currentStation, handlePlayStation]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (stations.length > visibleCount && visibleCount < AUTO_TRICKLE_LIMIT) {
-      trickleTimerRef.current = window.setTimeout(() => { setVisibleCount(prev => Math.min(prev + TRICKLE_STEP, stations.length)); }, 180); 
-    }
-    return () => { if (trickleTimerRef.current) clearTimeout(trickleTimerRef.current); };
-  }, [isLoading, stations.length, visibleCount]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-        (entries) => {
-            if (entries[0].isIntersecting && !isLoading && stations.length > visibleCount) {
-                setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, stations.length));
-            }
-        },
-        { threshold: 0.1 }
-    );
-    if (loaderRef.current) {
-        observer.observe(loaderRef.current);
-    }
-    return () => observer.disconnect();
-  }, [isLoading, stations.length, visibleCount]);
-
-  useEffect(() => {
-    if (ambience.is8DEnabled) {
-        let angle = 0;
-        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
-        pannerIntervalRef.current = window.setInterval(() => {
-           if (pannerNodeRef.current) { angle += 0.02 * ambience.spatialSpeed; pannerNodeRef.current.pan.value = Math.sin(angle); }
-        }, 30);
-    } else {
-        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
-        if (pannerNodeRef.current) pannerNodeRef.current.pan.value = 0;
-    }
-    return () => { if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current); };
-  }, [ambience.is8DEnabled, ambience.spatialSpeed]);
-
+  // Ambience Logic (Excluded from major refactor, but kept stable)
   useEffect(() => {
       ['rain', 'fire', 'city', 'vinyl'].forEach(key => {
           let url = '';
@@ -494,29 +318,54 @@ export default function App() {
           }
           let el = ambienceRefs.current[key];
           if (!el) { 
-              el = new Audio(url); 
+              el = new Audio(); 
               el.loop = true; 
               el.preload = "auto";
-              if (url.includes('stream')) { el.crossOrigin = "anonymous"; }
+              if (url.startsWith('http')) { el.crossOrigin = "anonymous"; }
               ambienceRefs.current[key] = el; 
-          } else if (el.src !== url) {
-              const wasPlaying = !el.paused;
+          } 
+          
+          const assignedUrl = (el as any)._assignedUrl;
+          if (assignedUrl !== url) {
               el.src = url;
-              if (wasPlaying) el.play().catch(e => console.error("Resume failed", e));
+              (el as any)._assignedUrl = url;
+              if ((ambience as any)[`${key}Volume`] > 0) {
+                  el.play().catch(() => {});
+              }
           }
+          
           const vol = (ambience as any)[`${key}Volume`]; 
-          el.volume = vol;
+          if (Math.abs(el.volume - vol) > 0.005) {
+              el.volume = vol;
+          }
+          
           if (vol > 0 && el.paused) {
-              el.play().catch(e => console.error(`Ambience ${key} failed to play:`, e));
+              el.play().catch(() => {});
           } else if (vol === 0 && !el.paused) {
               el.pause();
           }
       });
   }, [ambience.rainVolume, ambience.rainVariant, ambience.fireVolume, ambience.cityVolume, ambience.vinylVolume]);
 
-  useEffect(() => { filtersRef.current.forEach((f, i) => { if (eqGains[i] !== undefined) f.gain.value = eqGains[i]; }); }, [eqGains]);
+  // Spatial Audio Panner Logic
+  useEffect(() => {
+    if (ambience.is8DEnabled) {
+        let angle = 0;
+        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
+        pannerIntervalRef.current = window.setInterval(() => {
+           if (pannerNode) { angle += 0.02 * ambience.spatialSpeed; pannerNode.pan.value = Math.sin(angle); }
+        }, 30);
+    } else {
+        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
+        if (pannerNode) pannerNode.pan.value = 0;
+    }
+    return () => { if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current); };
+  }, [ambience.is8DEnabled, ambience.spatialSpeed, pannerNode]);
+
+  // Volume Sync
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
+  // Theme Application
   useEffect(() => {
     if (baseTheme === 'light') { document.body.classList.add('light-mode'); } else { document.body.classList.remove('light-mode'); }
     const colors = THEME_COLORS[currentTheme];
@@ -538,11 +387,13 @@ export default function App() {
     }
   }, [currentTheme, baseTheme, customCardColor]);
 
+  // Station Loading Logic
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
     loadRequestIdRef.current = requestId;
     setViewMode(mode); setSelectedCategory(category); setIsLoading(true); if (window.innerWidth < 768) setSidebarOpen(false); setVisibleCount(INITIAL_CHUNK); setStations([]);
     setIsAiCurating(false); 
+    
     try {
       if (mode === 'favorites') {
         const savedFavs = localStorage.getItem('streamflow_favorites');
@@ -558,8 +409,13 @@ export default function App() {
             if (loadRequestIdRef.current === requestId && fullData.length > 0) setStations(fullData); 
         }).catch(() => {});
       }
-    } catch (e) { if (loadRequestIdRef.current === requestId) setIsLoading(false); }
-  }, [handlePlayStation]);
+    } catch (e) { 
+        if (loadRequestIdRef.current === requestId) {
+            setIsLoading(false); 
+            showToast(language === 'ru' ? 'Ошибка загрузки станций' : 'Failed to load stations', 'error');
+        }
+    }
+  }, [handlePlayStation, language, showToast]);
 
   useEffect(() => { loadCategory(GENRES[0], 'genres', false); }, [loadCategory]);
 
@@ -600,6 +456,35 @@ export default function App() {
       setHighlightFeature(featureId);
   };
   
+  // Handlers for Player Controls
+  const handleNextStation = useCallback(() => {
+      if (!stations.length) return;
+      const currentIndex = currentStation ? stations.findIndex(s => s.stationuuid === currentStation.stationuuid) : -1;
+      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % stations.length;
+      handlePlayStation(stations[nextIndex]);
+  }, [stations, currentStation, handlePlayStation]);
+
+  const handlePreviousStation = useCallback(() => {
+      if (!stations.length) return;
+      const currentIndex = currentStation ? stations.findIndex(s => s.stationuuid === currentStation.stationuuid) : -1;
+      const prevIndex = currentIndex === -1 ? stations.length - 1 : (currentIndex - 1 + stations.length) % stations.length;
+      handlePlayStation(stations[prevIndex]);
+  }, [stations, currentStation, handlePlayStation]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting && !isLoading && stations.length > visibleCount) {
+                setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, stations.length));
+            }
+        },
+        { threshold: 0.1 }
+    );
+    if (loaderRef.current) observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [isLoading, stations.length, visibleCount]);
+
   const visibleStations = useMemo(() => stations.slice(0, visibleCount), [stations, visibleCount]);
   const currentNewsList = NEWS_MESSAGES[language] || NEWS_MESSAGES.en;
   const currentNews = currentNewsList[newsIndex % currentNewsList.length];
@@ -608,8 +493,28 @@ export default function App() {
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
       <RainEffect intensity={ambience.rainVolume} />
       <FireEffect intensity={ambience.fireVolume} />
-      <audio ref={audioRef} onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} onPause={() => setIsPlaying(false)} onWaiting={() => setIsBuffering(true)} onEnded={() => { if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } }} crossOrigin="anonymous" />
       
+      {/* Hidden Audio Element */}
+      <audio 
+          ref={audioRef} 
+          onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} 
+          onPause={() => setIsPlaying(false)} 
+          onWaiting={() => setIsBuffering(true)} 
+          onEnded={() => { if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } }} 
+          onError={() => { setIsPlaying(false); setIsBuffering(false); showToast('Stream connection lost', 'error'); }}
+          crossOrigin="anonymous" 
+      />
+      
+      {/* Toast Notifications */}
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4">
+          {toasts.map(toast => (
+              <div key={toast.id} className={`bg-slate-900/90 backdrop-blur-md border px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'error' ? 'border-red-500/50 text-red-200' : toast.type === 'success' ? 'border-green-500/50 text-green-200' : 'border-primary/50 text-white'}`}>
+                  <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-green-500' : 'bg-primary'}`} />
+                  <span className="text-xs font-bold tracking-wide shadow-black drop-shadow-md">{toast.message}</span>
+              </div>
+          ))}
+      </div>
+
       {aiNotification && (
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-5 fade-in duration-300">
               <div className="bg-slate-900/90 backdrop-blur-md border border-primary/50 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
@@ -621,7 +526,12 @@ export default function App() {
 
       {showDeveloperNews && (
           <div className={`absolute top-0 left-0 right-0 z-[60] bg-gradient-to-r from-primary/90 to-secondary/90 text-white py-1.5 overflow-hidden shadow-lg backdrop-blur-md transition-transform duration-500 ${isIdleView ? '-translate-y-full' : 'translate-y-0'}`}>
-            <div className="animate-marquee whitespace-nowrap text-[10px] font-black uppercase tracking-widest px-4">{currentNews}</div>
+            <div 
+              className="animate-marquee whitespace-nowrap text-[10px] font-black uppercase tracking-widest px-4"
+              onAnimationIteration={() => setNewsIndex(i => i + 1)}
+            >
+                {currentNews}
+            </div>
           </div>
       )}
 
@@ -668,7 +578,6 @@ export default function App() {
               <MenuIcon className="w-7 h-7" />
             </button>
             
-            {/* Listening text hidden on mobile, visible on desktop */}
             <div className="hidden md:flex text-slate-400 text-sm font-medium tracking-wide items-center gap-2">
                 {t.listeningTo} 
                 <span className="text-[var(--text-base)] font-black uppercase tracking-widest ml-1">
@@ -676,7 +585,6 @@ export default function App() {
                 </span>
             </div>
 
-            {/* Action icons moved left on mobile */}
             <div className="flex items-center gap-1.5 sm:gap-4">
               {isAiAvailable() && viewMode !== 'favorites' && !isLoading && (
                   <button 
@@ -695,7 +603,6 @@ export default function App() {
           </div>
           
           <div className="flex items-center shrink-0">
-            {/* Super-chat label with arrow */}
             {!chatOpen && (
                 <div className="flex items-center gap-1 animate-pulse mr-1 md:mr-2">
                     <span className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest whitespace-nowrap">Super-chat</span>
@@ -711,7 +618,7 @@ export default function App() {
             {selectedCategory && viewMode !== 'favorites' && (
                 <div className="mb-10 p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
                     <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} /></div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNode} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} /></div>
                     <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
                 </div>
             )}
@@ -732,12 +639,10 @@ export default function App() {
 
         {isIdleView && (
            <div className="fixed inset-0 z-0 animate-in fade-in duration-1000 bg-[#02040a]">
-              {/* Separate Cosmic Background with Moon */}
               <CosmicBackground />
-
               <div className="absolute inset-0 w-full h-full z-10">
                 {!vizSettings.energySaver && (
-                  <AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} />
+                  <AudioVisualizer analyserNode={analyserNode} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} />
                 )}
               </div>
            </div>
@@ -795,11 +700,8 @@ export default function App() {
                 setShowDeveloperNews={handleToggleDevNews} 
                 ambience={ambience} 
                 setAmbience={setAmbience} 
-                passport={passport} 
                 alarm={alarm} 
                 setAlarm={setAlarm} 
-                onThrowBottle={() => {}} 
-                onCheckBottle={() => null} 
                 customCardColor={customCardColor} 
                 setCustomCardColor={setCustomCardColor} 
                 fxSettings={fxSettings} 
@@ -816,11 +718,18 @@ export default function App() {
         </Suspense>
         <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /><TutorialOverlay isOpen={tutorialOpen || !!highlightFeature} onClose={() => { setTutorialOpen(false); setHighlightFeature(null); }} language={language} highlightFeature={highlightFeature} /></Suspense>
         <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
-        <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} /></Suspense>
         {showProfileSetup && <Suspense fallback={null}><ProfileSetup onComplete={handleProfileComplete} language={language} initialProfile={currentUser} onCancel={() => setShowProfileSetup(false)} /></Suspense>}
       </main>
-      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} visualMode={visualMode} /></Suspense>
+      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNode} volume={volume} onVolumeChange={setVolume} visualMode={visualMode} /></Suspense>
     </div>
   );
+}
+
+export default function App() {
+    return (
+        <ErrorBoundary>
+            <AppContent />
+        </ErrorBoundary>
+    );
 }

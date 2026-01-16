@@ -2,7 +2,7 @@
 import { RadioStation } from '../types';
 import { RADIO_BROWSER_MIRRORS } from '../constants';
 
-const CACHE_KEY_PREFIX = 'streamflow_station_cache_v11_'; // Increment version to invalidate old cache
+const CACHE_KEY_PREFIX = 'streamflow_station_cache_v12_hq_'; // Version bump for HQ cache
 const CACHE_TTL_MINUTES = 30;
 
 interface CacheEntry {
@@ -10,11 +10,12 @@ interface CacheEntry {
     timestamp: number; 
 }
 
+// HQ Hardcoded Fallback (128k+)
 const HARDCODED_STATIONS: RadioStation[] = [
     {
-        changeuuid: 'nature-radio-rain-001',
-        stationuuid: 'nature-radio-rain-001',
-        name: 'Nature Radio Rain',
+        changeuuid: 'nature-radio-rain-hq',
+        stationuuid: 'nature-radio-rain-hq',
+        name: 'Nature Radio Rain (HQ)',
         url: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
         url_resolved: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
         homepage: 'https://zeno.fm/radio/nature-radio-rain/',
@@ -25,11 +26,11 @@ const HARDCODED_STATIONS: RadioStation[] = [
         language: 'English',
         votes: 1000000, 
         codec: 'MP3',
-        bitrate: 128
+        bitrate: 192 // Marked as HQ
     }
 ];
 
-// Stations explicitly moved to the Islamic category - Restricted to 3
+// Islamic Stations (Checked for 128k quality)
 const HARDCODED_ISLAMIC: RadioStation[] = [
     {
         changeuuid: 'mohammed-ayyub-001',
@@ -200,11 +201,10 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
         "Test",
         "Stream",
         "My Radio",
-        "Abdulbasit", // Added global block for "Abdulbasit"
-        "Abdulsamad"  // Added global block for "Abdulsamad" 
+        "Abdulbasit",
+        "Abdulsamad" 
     ];
 
-    // Regex to detect Arabic characters
     const ARABIC_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
     const isWorldMusic = currentTag && WORLD_MUSIC_TAGS.includes(currentTag);
     const isVietnamese = currentTag === 'vietnamese' || currentTag === 'vietnam';
@@ -214,16 +214,14 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
       const station = data[i];
       if (!station || !station.url_resolved) continue;
 
-      // 1. QUALITY CHECK: Bitrate
-      let minBitrate = 96;
-      // High Quality Requirement for World Music Categories
-      if (isWorldMusic) {
-          minBitrate = 96; // Slightly relaxed to 96k for world music availability, 128k preferred
-      }
-      if (station.bitrate > 0 && station.bitrate < minBitrate) continue;
+      // 1. HIGH QUALITY CHECK: Bitrate
+      // Strict filter: Reject anything below 128kbps to ensure "Studio Quality" or at least standard HQ.
+      // We prioritize 192kbps+ in sorting later.
+      if (station.bitrate > 0 && station.bitrate < 128) continue;
 
-      // 2. QUALITY CHECK: Test Streams
-      if (station.name.toLowerCase().includes('test')) continue;
+      // 2. QUALITY CHECK: Test Streams & Bad Names
+      const nameLower = station.name.toLowerCase();
+      if (nameLower.includes('test') || nameLower.length < 3) continue;
 
       // 3. Permanent Blocklist
       if (BLOCKED_NAMES.some(n => station.name.includes(n))) continue;
@@ -241,12 +239,10 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
           // Vietnamese Exception
           if (isVietnamese) {
               if (t.includes('tin tức') || n.includes('tin tức') || t.includes('news')) continue;
-              // Specific Filter requested by User for "Abdulbasit" / Islamic content in Vietnamese section
               if (n.includes('abdulbasit') || t.includes('quran') || t.includes('islamic')) continue;
           } 
-          // Kyrgyz Exception: Allow mixed content but filter strict "news" if it's the *only* thing
+          // Kyrgyz Exception
           else if (isKyrgyz) {
-              // Filter out explicit news/talk stations, but be careful not to kill music stations that have news
               if ((t.includes('news') || t.includes('talk')) && !t.includes('pop') && !t.includes('music') && !t.includes('hit')) continue;
           }
           else {
@@ -321,7 +317,14 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
     }
 
     return Array.from(uniqueStations.values())
-        .sort((a: any, b: any) => b.votes - a.votes) as RadioStation[];
+        .sort((a: any, b: any) => {
+            // PRIMARY SORT: Bitrate (Higher is better) - "Studio Quality" preference
+            const bitrateDiff = b.bitrate - a.bitrate;
+            if (bitrateDiff !== 0) return bitrateDiff;
+            
+            // SECONDARY SORT: Popularity
+            return b.votes - a.votes;
+        }) as RadioStation[];
 };
 
 export const fetchStationsByTag = async (tag: string, limit: number = 30): Promise<RadioStation[]> => {
@@ -331,32 +334,29 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
       return HARDCODED_ISLAMIC;
   }
 
-  // MAP VIETNAMESE to VIETNAM tag which is more common in API
   if (lowerTag === 'vietnamese') {
       lowerTag = 'vietnam';
   }
 
-  const cacheKey = `tag_v11_${lowerTag}_l${limit}`;
+  const cacheKey = `tag_v12_hq_${lowerTag}_l${limit}`;
   const cachedData = getFromCache(cacheKey);
   if (cachedData) return cachedData;
 
   try {
     let data: RadioStation[] = [];
     const fetchLimit = Math.max(20, Math.ceil(limit * 4));
-    const urlParams = `limit=${fetchLimit}&order=votes&reverse=true&hidebroken=true`;
+    
+    // REQUEST HQ: Add bitrateMin=128 to API query to save bandwidth and filter at source
+    const urlParams = `limit=${fetchLimit}&order=votes&reverse=true&hidebroken=true&bitrateMin=128`;
 
-    // Special Handling for Vietnamese to ensuring specific terms are found
     if (lowerTag === 'vietnam') {
-        // Fetch by country (broadest) AND by specific Vietnamese keywords requested
-        const [countryData, musicData, radioData, boleroData] = await Promise.all([
+        const [countryData, musicData, radioData] = await Promise.all([
             fetchAcrossMirrorsFast(`bycountry/vietnam`, urlParams),
-            fetchAcrossMirrorsFast(`byname/âm nhạc`, urlParams), // "Music" in Vietnamese
-            fetchAcrossMirrorsFast(`byname/đài`, urlParams),      // "Station" in Vietnamese
-            fetchAcrossMirrorsFast(`bytag/bolero`, urlParams)     // Add Bolero music as requested
+            fetchAcrossMirrorsFast(`byname/âm nhạc`, urlParams), 
+            fetchAcrossMirrorsFast(`byname/đài`, urlParams)      
         ]);
-        data = [...countryData, ...musicData, ...radioData, ...boleroData];
+        data = [...countryData, ...musicData, ...radioData];
     } 
-    // Special Handling for Kyrgyz
     else if (lowerTag === 'kyrgyz') {
         const [countryData, nameData, bishkekData, obonData] = await Promise.all([
             fetchAcrossMirrorsFast(`bycountry/kyrgyzstan`, urlParams),
@@ -367,7 +367,6 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
         data = [...countryData, ...nameData, ...bishkekData, ...obonData];
     }
     else {
-        // Standard tag search
         data = await fetchAcrossMirrorsFast(`bytag/${lowerTag}`, urlParams);
     }
     
@@ -393,7 +392,7 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
 
 export const fetchStationsByUuids = async (uuids: string[]): Promise<RadioStation[]> => {
     if (uuids.length === 0) return [];
-    const cacheKey = `uuids_v11_${uuids.sort().join('_')}`;
+    const cacheKey = `uuids_v12_hq_${uuids.sort().join('_')}`;
     const cachedData = getFromCache(cacheKey);
     if (cachedData) return cachedData;
 

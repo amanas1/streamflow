@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
@@ -50,7 +49,7 @@ const PAGE_SIZE = 10;
 const AMBIENCE_URLS = {
     rain_soft: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
     rain_roof: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3', // Fallback to same reliable source
-    fire: 'https://soundbible.com/mp3/Fire_Burning-Jaime_Os_Rivera-794514509.mp3',
+    fire: '/11.mp3',
     city: 'https://soundbible.com/mp3/City_Traffic-Sound_Explorer-1662968325.mp3',
     vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' 
 };
@@ -89,7 +88,7 @@ const StationCard = React.memo(({
   );
 });
 
-export default function App() {
+export default function App(): React.JSX.Element {
   
   // Radio State
   const [viewMode, setViewMode] = useState<ViewMode>('genres');
@@ -196,13 +195,6 @@ export default function App() {
   const loaderRef = useRef<HTMLDivElement>(null);
 
   const t = TRANSLATIONS[language];
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-        setNewsIndex((prev) => prev + 1);
-    }, 10000); 
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -621,7 +613,12 @@ export default function App() {
 
       {showDeveloperNews && (
           <div className={`absolute top-0 left-0 right-0 z-[60] bg-gradient-to-r from-primary/90 to-secondary/90 text-white py-1.5 overflow-hidden shadow-lg backdrop-blur-md transition-transform duration-500 ${isIdleView ? '-translate-y-full' : 'translate-y-0'}`}>
-            <div className="animate-marquee whitespace-nowrap text-[10px] font-black uppercase tracking-widest px-4">{currentNews}</div>
+            <div 
+              className="animate-marquee whitespace-nowrap text-[10px] font-black uppercase tracking-widest px-4"
+              onAnimationIteration={() => setNewsIndex(i => i + 1)}
+            >
+                {currentNews}
+            </div>
           </div>
       )}
 

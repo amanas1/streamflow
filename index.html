@@ -1,11 +1,21 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#bc6ff1" />
-    <title>StreamFlow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="StreamFlow: A premium global radio streaming experience with immersive visuals and real-time companion features.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StreamFlow">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="StreamFlow Radio">
+    <meta property="og:description" content="Global Radio Streaming Engine with immersive visuals.">
+    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/3659/3659784.png">
+
+    <title>StreamFlow - Global Radio Engine</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +47,7 @@
             },
             keyframes: {
               marquee: {
-                '0%': { transform: 'translateX(100%)' },
+                '0%': { transform: 'translateX(100vw)' },
                 '100%': { transform: 'translateX(-100%)' },
               },
               shimmer: {
@@ -116,6 +126,7 @@
         font-family: 'Plus Jakarta Sans', sans-serif;
         -webkit-font-smoothing: antialiased;
         transition: background-color 0.5s ease, color 0.5s ease;
+        overscroll-behavior: none;
       }
 
       .glass-panel {
@@ -143,7 +154,8 @@
     "path": "https://esm.sh/path@^0.12.7",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "url": "https://esm.sh/url@^0.11.4"
+    "url": "https://esm.sh/url@^0.11.4",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>
