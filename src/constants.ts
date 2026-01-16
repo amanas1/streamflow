@@ -1,5 +1,8 @@
 
-import { CategoryInfo, UserProfile } from './types';
+
+import { CategoryInfo, UserProfile, Achievement, PassportData } from './types';
+import { CloudIcon, FireIcon, MusicNoteIcon, GlobeIcon, MoonIcon, HeartIcon } from './components/Icons';
+import React from 'react';
 
 // Radio browser API mirrors
 export const RADIO_BROWSER_MIRRORS = [
@@ -112,6 +115,37 @@ export const DEMO_USERS: UserProfile[] = [
     { id: 'd8', name: 'Kaan', avatar: 'https://i.pravatar.cc/150?u=18', credits: 10, isAnonymous: false, age: 29, country: 'Turkey', city: 'Istanbul', status: 'online', safetyLevel: 'green', bio: '', gender: 'male', blockedUsers: [], hasAgreedToRules: true, filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true } }
 ];
 
+export const ACHIEVEMENTS_LIST: Achievement[] = [
+    {
+        id: 'explorer',
+        icon: '🌍',
+        titleKey: 'Globetrotter',
+        descKey: 'Visit 5 different countries',
+        condition: (data: PassportData) => data.countriesVisited.length >= 5
+    },
+    {
+        id: 'night_owl',
+        icon: '🦉',
+        titleKey: 'Night Owl',
+        descKey: 'Listen for 60 minutes at night',
+        condition: (data: PassportData) => data.nightListeningMinutes >= 60
+    },
+    {
+        id: 'audiophile',
+        icon: '🎧',
+        titleKey: 'Audiophile',
+        descKey: 'Listen for 1000 total minutes',
+        condition: (data: PassportData) => data.totalListeningMinutes >= 1000
+    },
+    {
+        id: 'curator',
+        icon: '❤️',
+        titleKey: 'Curator',
+        descKey: 'Favorite 10 stations',
+        condition: (data: PassportData) => data.stationsFavorited >= 10
+    }
+];
+
 export const NEWS_MESSAGES: Record<string, string[]> = {
     en: [
         "🎛 PRO Tip: Mix 'HiFi Bass' and 'Loudness' in the FX tab to achieve crystal clear studio quality.",
@@ -121,18 +155,7 @@ export const NEWS_MESSAGES: Record<string, string[]> = {
         "🔋 Low Battery? Turn on 'Energy Saver' in Visual settings to save power.",
         "🚀 Pump it up: Crank up the 'Compressor' for Electronic and Phonk tracks to get that punchy sound.",
         "🌌 Full Immersion: Double-click the visualizer to enter fullscreen mode.",
-        "⚙️ Settings: Rotate phone (landscape) for more features.",
-        "🌍 Global Radio: Explore thousands of stations from 'Genres', 'Eras', or 'Moods'. Use the side menu to navigate.",
-        "❤️ Favorites: Love a track? Tap the heart icon on the station card to save it for later.",
-        "💬 Private Chat: Connect with listeners worldwide. Fill out your profile and use the 'Discovery Drum' to find friends.",
-        "😴 Sleep Timer: Drift off to music. Set a timer in the Tools panel (clock icon), and the app will fade out automatically.",
-        "⏰ Smart Alarm: Wake up to your favorite vibe. Configure the alarm in the Tools panel to start your day right.",
-        "🎨 Visualizer Modes: Bored of the galaxy? Switch to 'Stage Dancer', 'Neon Lines', or 'Bubbles' in the Visualizer settings.",
-        "🎚 10-Band EQ: Fine-tune your audio. Boost the bass or enhance vocals using the Equalizer tab.",
-        "🌧 Ambience Mixer: Create your sanctuary. Layer rain, fire, or city sounds over any music track.",
-        "🎭 Profile Customization: upload your avatar and set your preferences to find like-minded music lovers.",
-        "📱 Mobile App: Install StreamFlow on your home screen for a native app experience. Look for the download icon.",
-        "💡 Tip: Use the 'Compressor' in FX to level out volume differences between radio stations."
+        "⚙️ Settings: Rotate phone (landscape) for more features."
     ],
     ru: [
         "🎛 PRO Совет: Смешайте 'HiFi Bass' и 'Loudness' во вкладке FX, чтобы добиться кристально чистого студийного качества.",
@@ -142,18 +165,7 @@ export const NEWS_MESSAGES: Record<string, string[]> = {
         "🔋 Слабая батарея? Включите 'Энергосбережение' в настройках визуала, чтобы продлить жизнь телефона.",
         "🚀 Драйв: Для электроники и фонка выкрутите 'Compressor' — это добавит плотности и кача вашим трекам.",
         "🌌 Полное погружение: Дважды кликните по визуализатору, чтобы развернуть его на весь экран.",
-        "⚙️ Настройки: Поверни телефон (ландшафт) — больше функций.",
-        "🌍 Глобальное Радио: Исследуйте тысячи станций через меню 'Жанры', 'Эпохи' или 'Настроение'.",
-        "❤️ Избранное: Понравилась станция? Нажмите на сердечко, чтобы сохранить её в быстрый доступ.",
-        "💬 Приватный Чат: Общайтесь с меломанами по всему миру. Заполните профиль и крутите 'Барабан Открытий' для поиска друзей.",
-        "😴 Таймер Сна: Засыпайте под музыку. Установите таймер в инструментах (иконка часов), и музыка плавно выключится.",
-        "⏰ Умный Будильник: Просыпайтесь под любимые ритмы. Настройте будильник в панели инструментов.",
-        "🎨 Режимы Визуализации: Смените 'Галактику' на 'Танцора', 'Неон' или 'Пузыри' во вкладке Визуал.",
-        "🎚 10-Полосный Эквалайзер: Настройте звук под себя. Усильте бас или выделите вокал во вкладке EQ.",
-        "🌧 Микшер Атмосферы: Создайте уют. Накладывайте звуки дождя, огня или города на любую музыку.",
-        "🎭 Ваш Профиль: Загрузите аватар и укажите интересы, чтобы находить единомышленников.",
-        "📱 Мобильное Приложение: Установите StreamFlow на экран 'Домой' для быстрого доступа. Ищите иконку скачивания.",
-        "💡 Совет: Используйте 'Компрессор' в FX, чтобы выровнять громкость разных радиостанций."
+        "⚙️ Настройки: Поверни телефон (ландшафт) — больше функций."
     ]
 };
 
@@ -163,7 +175,7 @@ export const TRANSLATIONS: Record<string, any> = {
         listeningTo: 'Listening to', loadMore: 'Load More',
         visualizer: 'Visualizer', eq: 'Equalizer', look: 'Appearance', ambience: 'Ambience', fx: 'Effects FX', sleep: 'Sleep Timer',
         vizGalaxy: 'Galaxy', resetFlat: 'Reset Flat', sleepTimer: 'Sleep Timer', turnOffTimer: 'Turn Off', alarm: 'Alarm', on: 'On', off: 'Off', alarm_set: 'Alarm set to', cardColor: 'Card Tint', developerNews: 'App Tips', interfaceLanguage: 'Language',
-        findFriends: 'Find Friends', completeProfile: 'Complete Profile', displayName: 'Display Name', gender: 'Gender', male: 'Male', female: 'Female', other: 'Other', age: 'Age', country: 'Country', city: 'City', saveAndEnter: 'Save & Enter', login: 'Login', any: 'Any', search: 'Search', knock: 'Knock',
+        findFriends: 'StreamFlow World Chat', completeProfile: 'Complete Profile', displayName: 'Display Name', gender: 'Gender', male: 'Male', female: 'Female', other: 'Other', age: 'Age', country: 'Country', city: 'City', saveAndEnter: 'Save & Enter', login: 'Login', any: 'Any', search: 'Search', knock: 'Knock', from: 'From', to: 'To',
         tutorialWelcome: 'Welcome to StreamFlow', manualSection2: 'Radio Stream: The Core', manualSection3: 'Sleep Timer: Rest Easy', manualSection5: 'Ambience: Create Atmosphere', manualSection4: 'Chat: Connect Safely',
         tutorialStep1: 'Choose your vibe from Genres, Eras, or Moods.', tutorialStep2: 'Tap any station card to start listening immediately.', tutorialStep3: 'Set a sleep timer or alarm here.', tutorialStep4: 'Mix ambient sounds like rain or fire.', tutorialStep5: 'Chat securely with others listening now.',
         next: 'Next', gotIt: 'Got it', manualTitle: 'User Manual', manualIntro: 'Welcome to StreamFlow, your ultimate radio experience.', whoAreYou: 'Who are you?', createProfile: 'Create your profile to connect.', uploadPhoto: 'Upload Photo', saveProfile: 'Save Profile', joinCommunity: 'Join Community',
@@ -180,7 +192,7 @@ export const TRANSLATIONS: Record<string, any> = {
         french: 'French', kazakh: 'Kazakh', kyrgyz: 'Kyrgyz', kavkaz: 'Caucasian', oriental: 'Oriental', chinese: 'Chinese',
         // Missing Translations Added
         speed: 'Speed', react: 'React', bright: 'Bright', performanceMode: 'Performance Mode', accentColor: 'Accent Color', reset: 'Reset',
-        privateChat: 'PRIVATE CHAT', authTitle: 'Communication Without Borders', authDesc: 'Connect to your personal secure hub. Chat 1-on-1 with mutual consent only. No spam, no noise.', signInGuest: 'Sign in as Guest', online: 'Online', today: 'Today', recording: 'Recording...', send: 'SEND', noUsers: 'No users found', showAll: 'Show All', knocking: 'Knocking', wantsToConnect: 'wants to connect', myDialogs: 'My Dialogs', noChats: 'No chats yet', useDiscovery: "Use 'Discovery Drum' to find people or wait for the Welcome Bot.", photoExpired: '📸 Photo expired', audioExpired: '🎤 Audio expired',
+        privateChat: 'Free Communication Chat', authTitle: 'Communication Without Borders', authDesc: 'Connect to your personal secure hub. Chat 1-on-1 with mutual consent only. No spam, no noise.', signInGuest: 'Sign in as Guest', online: 'Online', today: 'Today', recording: 'Recording...', send: 'SEND', noUsers: 'No users found', showAll: 'Show All', knocking: 'Knocking', wantsToConnect: 'wants to connect', myDialogs: 'My Dialogs', noChats: 'No chats yet', useDiscovery: "Use 'Discovery Drum' to find people or wait for the Welcome Bot.", photoExpired: '📸 Photo expired', audioExpired: '🎤 Audio expired',
         knockSent: 'Knock Sent!', signInAlert: 'Please sign in via the Chat Panel first.',
         searching: 'Searching databases...', noTracks: 'No tracks found.', errorTracks: 'Error fetching tracks.', loading: 'Loading...', download: 'Download', searchTracks: 'Search tracks...',
         infiniteTracks: 'Infinite Tracks', noAuth: 'No Auth Required', searchLib: 'Search infinite library...', all: 'All', moodChill: 'Chill', moodEnergy: 'Energy', moodPhonk: 'Phonk', moodFocus: 'Focus', moodJazz: 'Jazz', moodParty: 'Party',
@@ -217,7 +229,7 @@ export const TRANSLATIONS: Record<string, any> = {
         listeningTo: 'В эфире', loadMore: 'Загрузить еще',
         visualizer: 'Визуал', eq: 'Звук', look: 'Стиль', ambience: 'Атмосфера', fx: 'Эффекты', sleep: 'Сон',
         vizGalaxy: 'Космос', resetFlat: 'Сброс', sleepTimer: 'Режим сна', turnOffTimer: 'Отключить', alarm: 'Будильник', on: 'Вкл', off: 'Выкл', alarm_set: 'Разбудить в', cardColor: 'Оттенок блоков', developerNews: 'Советы', interfaceLanguage: 'Язык',
-        findFriends: 'Поиск людей', completeProfile: 'Ваш профиль', displayName: 'Ваше имя', gender: 'Пол', male: 'Мужской', female: 'Женский', other: 'Другой', age: 'Возраст', country: 'Страна', city: 'Город', saveAndEnter: 'Войти', login: 'Логин', any: 'Неважно', search: 'Найти', knock: 'Постучаться',
+        findFriends: 'Всемирный чат StreamFlow', completeProfile: 'Ваш профиль', displayName: 'Ваше имя', gender: 'Пол', male: 'Мужской', female: 'Женский', other: 'Другой', age: 'Возраст', country: 'Страна', city: 'Город', saveAndEnter: 'Войти', login: 'Логин', any: 'Неважно', search: 'Найти', knock: 'Постучаться', from: 'От', to: 'До',
         tutorialWelcome: 'Добро пожаловать', manualSection2: 'Радио: Сердце Эфира', manualSection3: 'Таймер Сна: Отдыхайте', manualSection5: 'Атмосфера: Создайте Уют', manualSection4: 'Чат: Общайтесь Безопасно',
         tutorialStep1: 'Выберите настроение, жанр или эпоху.', tutorialStep2: 'Нажмите на любую станцию, чтобы начать.', tutorialStep3: 'Здесь можно поставить таймер или будильник.', tutorialStep4: 'Смешивайте звуки дождя или огня.', tutorialStep5: 'Безопасный чат с другими слушателями.',
         next: 'Далее', gotIt: 'Понятно', manualTitle: 'Руководство', manualIntro: 'Добро пожаловать в StreamFlow — ваш идеальный радио-опыт.', whoAreYou: 'Кто вы?', createProfile: 'Создайте профиль для общения.', uploadPhoto: 'Загрузить фото', saveProfile: 'Сохранить', joinCommunity: 'Присоединиться',
@@ -234,7 +246,7 @@ export const TRANSLATIONS: Record<string, any> = {
         french: 'Французская', kazakh: 'Казахская', kyrgyz: 'Кыргызская', kavkaz: 'Кавказская', oriental: 'Восточная', chinese: 'Китайская',
         // Missing Translations Added
         speed: 'Скорость', react: 'Реакция', bright: 'Яркость', performanceMode: 'Режим', accentColor: 'Акцент', reset: 'Сброс',
-        privateChat: 'ЛИЧНЫЙ ЧАТ', authTitle: 'Общение без границ', authDesc: 'Ваш безопасный хаб. Общение 1-на-1 только по взаимному согласию. Без спама и шума.', signInGuest: 'Войти как Гость', online: 'Онлайн', сегодня: 'Сегодня', recording: 'Запись...', send: 'ОТПРАВИТЬ', noUsers: 'Никого не найдено', showAll: 'Показать всех', knocking: 'Стучится', wantsToConnect: 'хочет общаться', myDialogs: 'Мои Диалоги', noChats: 'Пока нет чатов', useDiscovery: "Используйте 'Барабан Открытий' или ждите приветствия.", photoExpired: '📸 Фото истекло', audioExpired: '🎤 Аудио истекло',
+        privateChat: 'Чат свободного общения', authTitle: 'Общение без границ', authDesc: 'Ваш безопасный хаб. Общение 1-на-1 только по взаимному согласию. Без спама и шума.', signInGuest: 'Войти как Гость', online: 'Онлайн', сегодня: 'Сегодня', recording: 'Запись...', send: 'ОТПРАВИТЬ', noUsers: 'Никого не найдено', showAll: 'Показать всех', knocking: 'Стучится', wantsToConnect: 'хочет общаться', myDialogs: 'Мои Диалоги', noChats: 'Пока нет чатов', useDiscovery: "Используйте 'Барабан Открытий' или ждите приветствия.", photoExpired: '📸 Фото истекло', audioExpired: '🎤 Аудио истекло',
         knockSent: 'Отправлено!', signInAlert: 'Пожалуйста, сначала войдите через панель чата.',
         searching: 'Поиск в базах...', noTracks: 'Треки не найдены.', errorTracks: 'Ошибка загрузки.', loading: 'Загрузка...', download: 'Скачать', searchTracks: 'Поиск треков...',
         infiniteTracks: 'Бесконечные Треки', noAuth: 'Без регистрации', searchLib: 'Поиск в библиотеке...', all: 'Все', moodChill: 'Чилл', moodEnergy: 'Энергия', moodPhonk: 'Фонк', moodFocus: 'Фокус', moodJazz: 'Джаз', moodParty: 'Вечеринка',

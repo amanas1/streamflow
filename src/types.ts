@@ -101,17 +101,21 @@ export interface ChatMessage {
   senderId: string;
   text?: string;
   imageBase64?: string; // Stored in RAM only
+  image?: string; // Compatibility alias
   audioBase64?: string; // Stored in RAM only
   timestamp: number;
-  expiresAt: number; // RAM deletion time
+  expiresAt?: number; // RAM deletion time
   isSystem?: boolean;
   cost?: number; // Credit cost
+  read?: boolean;
 }
 
 export interface ChatSession {
   id: string; 
   participants: string[]; 
   lastActivity: number;
+  updatedAt?: number;
+  lastMessage?: ChatMessage | null;
 }
 
 export interface ChatRequest {
@@ -120,7 +124,18 @@ export interface ChatRequest {
   toUserId: string;
   status: 'pending' | 'accepted' | 'rejected';
   timestamp: number;
-  cost: number; 
+  cost?: number; 
+}
+
+// Add export keyword for these interfaces
+export interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  audioUrl: string; 
+  coverUrl: string; 
+  duration: number; 
+  tags: string[];
 }
 
 export interface AmbienceState {
@@ -131,6 +146,32 @@ export interface AmbienceState {
   vinylVolume: number;
   is8DEnabled: boolean;
   spatialSpeed: number; 
+}
+
+export interface PassportData {
+  countriesVisited: string[];
+  totalListeningMinutes: number;
+  nightListeningMinutes: number;
+  stationsFavorited: number;
+  unlockedAchievements: string[];
+  level: number;
+}
+
+export interface Achievement {
+  id: string;
+  icon: string;
+  titleKey: string;
+  descKey: string;
+  condition: (data: PassportData) => boolean;
+}
+
+export interface BottleMessage {
+  id: string;
+  text: string;
+  senderName: string;
+  senderCountry: string;
+  timestamp: number;
+  isFound: boolean;
 }
 
 export interface AlarmConfig {

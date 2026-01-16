@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { FxSettings } from '../types';
 
 export const useAudioChain = (audioRef: React.RefObject<HTMLAudioElement>, fxSettings: FxSettings, eqGains: number[]) => {

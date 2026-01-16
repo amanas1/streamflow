@@ -1,9 +1,9 @@
 
 import { auth, db, rtdb } from '../firebaseConfig';
-import { signInAnonymously, onAuthStateChanged, User } from "firebase/auth";
+import { signInAnonymously as firebaseSignInAnonymously, onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, increment, runTransaction, onSnapshot } from "firebase/firestore";
 import { ref, push, onChildAdded, remove, serverTimestamp, query, limitToLast } from "firebase/database";
-import { UserProfile, ChatMessage, ChatSession } from '../types';
+import { UserProfile, ChatMessage, ChatSession, ChatRequest } from '../types';
 
 // COST CONFIGURATION (USD cents equivalent, stored as integer credits)
 export const COSTS = {
@@ -27,7 +27,7 @@ export const chatService = {
                     resolve(profile);
                 } else {
                     try {
-                        const cred = await signInAnonymously(auth);
+                        const cred = await firebaseSignInAnonymously(auth);
                         const profile = await ensureUserProfile(cred.user);
                         resolve(profile);
                     } catch (e) {
@@ -36,6 +36,11 @@ export const chatService = {
                 }
             });
         });
+    },
+
+    // Legacy alias for ChatPanel compatibility
+    signInAnonymously: async (): Promise<UserProfile> => {
+        return chatService.initializeUser();
     },
 
     // Listen to Wallet Balance Changes
@@ -64,6 +69,18 @@ export const chatService = {
             audio: audio || null,
             timestamp: serverTimestamp()
         });
+        
+        // Return dummy message for local optimisitic UI
+        return {
+            id: `temp_${Date.now()}`,
+            sessionId,
+            senderId,
+            text,
+            image, // Use 'image' property for ChatPanel compatibility
+            audioBase64: audio,
+            timestamp: Date.now(),
+            read: false
+        } as ChatMessage;
     },
 
     // Subscribe to incoming signals
@@ -86,6 +103,7 @@ export const chatService = {
                 senderId: data.senderId,
                 text: data.text,
                 imageBase64: data.image,
+                image: data.image, // For compatibility
                 audioBase64: data.audio,
                 timestamp: Date.now(),
                 expiresAt: Date.now() + (data.image ? 10000 : 3600000), // 10s for image, 1hr for text
@@ -130,13 +148,20 @@ export const chatService = {
         });
     },
 
-    // Legacy Support (Stub)
-    getMyChats: () => [],
-    getIncomingKnocks: () => [],
+    // Legacy Support (Stubs with correct signatures)
+    getMyChats: (userId: string) => [] as ChatSession[],
+    getIncomingKnocks: (userId: string) => [] as ChatRequest[],
     sendKnock: async (from: UserProfile, to: UserProfile) => true,
-    acceptRequest: () => ({ id: 'demo', participants: [], lastActivity: Date.now() }),
-    rejectRequest: () => {},
-    getMessages: () => [],
+    acceptRequest: (requestId: string, currentUserId: string, partnerId: string) => ({ 
+        id: 'demo_session', 
+        participants: [currentUserId, partnerId], 
+        lastActivity: Date.now(),
+        updatedAt: Date.now(),
+        lastMessage: null 
+    } as ChatSession),
+    rejectRequest: (requestId: string) => {},
+    getMessages: (sessionId: string) => [] as ChatMessage[],
+    simulateIncomingKnock: (botUser: UserProfile, targetUserId: string) => {}
 };
 
 // Internal Helper
