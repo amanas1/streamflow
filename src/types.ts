@@ -78,6 +78,8 @@ export interface UserProfile {
   city: string;
   gender: 'male' | 'female' | 'other';
   status: 'online' | 'offline';
+  // Fix: Added lastSeen property to UserProfile interface to support presence tracking
+  lastSeen?: number;
   safetyLevel: 'green' | 'yellow' | 'red';
   blockedUsers: string[];
   bio: string;

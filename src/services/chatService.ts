@@ -1,8 +1,8 @@
 
 import { auth, db, rtdb } from '../firebaseConfig';
 import { signInAnonymously as firebaseSignInAnonymously, onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, increment, runTransaction, onSnapshot } from "firebase/firestore";
-import { ref, push, onChildAdded, remove, serverTimestamp, query, limitToLast, set } from "firebase/database";
+import { doc, getDoc, setDoc, updateDoc, increment, runTransaction, onSnapshot, collection, query, where, getDocs, serverTimestamp, orderBy, limit } from "firebase/firestore";
+import { ref, push, onChildAdded, remove, serverTimestamp as rtdbTimestamp, query as rtdbQuery, limitToLast } from "firebase/database";
 import { UserProfile, ChatMessage, ChatSession, ChatRequest } from '../types';
 
 export const COSTS = {
@@ -37,6 +37,35 @@ export const chatService = {
         return chatService.initializeUser();
     },
 
+    // 1. SAVE PROFILE TO CLOUD
+    updateUserProfile: async (userId: string, data: Partial<UserProfile>) => {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, {
+            ...data,
+            lastSeen: Date.now(),
+            status: 'online'
+        });
+    },
+
+    // 2. LIVE DISCOVERY FROM FIRESTORE
+    getLiveUsers: async (currentUserId: string): Promise<UserProfile[]> => {
+        const usersRef = collection(db, "users");
+        // Show users active in the last 10 minutes
+        const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+        const q = query(
+            usersRef, 
+            where("lastSeen", ">", tenMinutesAgo),
+            orderBy("lastSeen", "desc"),
+            limit(20)
+        );
+        
+        const snapshot = await getDocs(q);
+        return snapshot.docs
+            .map(doc => doc.data() as UserProfile)
+            .filter(user => user.id !== currentUserId);
+    },
+
+    // 3. MESSAGING & CALL SIGNALS (RTDB)
     sendMessage: async (sessionId: string, senderId: string, text?: string, image?: string, audio?: string) => {
         const signalRef = ref(rtdb, `signals/${sessionId}/messages`);
         await push(signalRef, {
@@ -44,14 +73,13 @@ export const chatService = {
             text: text || null,
             image: image || null,
             audio: audio || null,
-            timestamp: serverTimestamp()
+            timestamp: rtdbTimestamp()
         });
-        return { id: `temp_${Date.now()}`, sessionId, senderId, text, image, audioBase64: audio, timestamp: Date.now(), read: false } as ChatMessage;
     },
 
     subscribeToSession: (sessionId: string, onMessage: (msg: ChatMessage) => void) => {
         const signalRef = ref(rtdb, `signals/${sessionId}/messages`);
-        const q = query(signalRef, limitToLast(1));
+        const q = rtdbQuery(signalRef, limitToLast(1));
         return onChildAdded(q, (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
@@ -69,13 +97,12 @@ export const chatService = {
         });
     },
 
-    // CALL SIGNALING IMPROVED
     sendCallSignal: async (sessionId: string, senderId: string, signal: any) => {
         const callSignalRef = ref(rtdb, `signals/${sessionId}/calls`);
         await push(callSignalRef, {
             ...signal,
             senderId,
-            timestamp: serverTimestamp()
+            timestamp: rtdbTimestamp()
         });
     },
 
@@ -90,14 +117,15 @@ export const chatService = {
         });
     },
 
-    getMyChats: (userId: string) => [] as ChatSession[],
-    getIncomingKnocks: (userId: string) => [] as ChatRequest[],
-    sendKnock: async (from: UserProfile, to: UserProfile) => true,
-    acceptRequest: (requestId: string, currentUserId: string, partnerId: string) => ({ 
+    acceptRequest: (currentUserId: string, partnerId: string) => ({ 
         id: `chat_${[currentUserId, partnerId].sort().join('_')}`, 
         participants: [currentUserId, partnerId], 
         lastActivity: Date.now() 
     } as ChatSession),
+    
+    getMyChats: (userId: string) => [] as ChatSession[],
+    getIncomingKnocks: (userId: string) => [] as ChatRequest[],
+    sendKnock: async (from: UserProfile, to: UserProfile) => true,
     rejectRequest: (requestId: string) => {},
     getMessages: (sessionId: string) => [] as ChatMessage[],
 };
@@ -105,11 +133,17 @@ export const chatService = {
 async function ensureUserProfile(user: User): Promise<UserProfile> {
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
-    if (snap.exists()) return snap.data() as UserProfile;
+    if (snap.exists()) {
+        const data = snap.data() as UserProfile;
+        // Update presence on every init
+        await updateDoc(userRef, { lastSeen: Date.now(), status: 'online' });
+        return data;
+    }
+    // Fix: lastSeen is now properly defined in the UserProfile interface within types.ts
     const newProfile: UserProfile = {
-        id: user.uid, name: `User-${user.uid.substring(0, 5)}`, avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
+        id: user.uid, name: `Guest-${user.uid.substring(0, 5)}`, avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
         credits: 10, isAnonymous: true, country: 'Unknown', city: 'Unknown', age: 18, gender: 'other', status: 'online',
-        safetyLevel: 'green', blockedUsers: [], bio: 'New user', hasAgreedToRules: false,
+        safetyLevel: 'green', blockedUsers: [], bio: 'New user', hasAgreedToRules: false, lastSeen: Date.now(),
         filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
     };
     await setDoc(userRef, newProfile);

@@ -2,15 +2,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
     XMarkIcon, PaperAirplaneIcon, UsersIcon, 
-    MicrophoneIcon, FaceSmileIcon, PaperClipIcon, 
-    PlayIcon, PauseIcon, CameraIcon, SearchIcon,
-    VolumeIcon, ChevronDownIcon, ChevronUpIcon,
-    PhoneIcon, VideoCameraIcon, ArrowLeftIcon
+    PlayIcon, PauseIcon, SearchIcon,
+    PhoneIcon, VideoCameraIcon, ArrowLeftIcon, LoadingIcon
 } from './Icons';
-import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, ChatRequest, VisualMode } from '../types';
-import AudioVisualizer from './AudioVisualizer';
+import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
 import { chatService } from '../services/chatService';
-import { TRANSLATIONS, COUNTRIES_DATA, DEMO_USERS } from '../constants';
+import { TRANSLATIONS, COUNTRIES_DATA } from '../constants';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -34,15 +31,13 @@ const AGES = Array.from({ length: 63 }, (_, i) => (i + 18).toString());
 const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 const ChatPanel: React.FC<ChatPanelProps> = (props) => {
-  const { 
-    isOpen, onClose, language, currentUser, onUpdateCurrentUser,
-    isPlaying, onTogglePlay, currentStation, analyserNode,
-    volume, onVolumeChange, visualMode 
-  } = props;
+  const { isOpen, onClose, language, currentUser, onUpdateCurrentUser, isPlaying, onTogglePlay, currentStation } = props;
 
-  const [view, setView] = useState<'auth' | 'register' | 'search' | 'inbox' | 'chat'>('auth');
+  const [view, setView] = useState<'auth' | 'register' | 'search' | 'chat'>('auth');
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [liveUsers, setLiveUsers] = useState<UserProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   // Call State
   const [callState, setCallState] = useState<'idle' | 'calling' | 'incoming' | 'active'>('idle');
@@ -55,24 +50,33 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Search/Reg State
+  // Reg State
   const [regName, setRegName] = useState('');
   const [regAge, setRegAge] = useState('25');
   const [regGender, setRegGender] = useState<'male' | 'female' | 'other'>('male');
-  const [searchAgeMin, setSearchAgeMin] = useState('18');
-  const [searchAgeMax, setSearchAgeMax] = useState('80');
-  const [searchGender, setSearchGender] = useState('any');
-  const [searchResults, setSearchResults] = useState<UserProfile[]>(DEMO_USERS);
   const [inputText, setInputText] = useState('');
 
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
 
   useEffect(() => {
     if (currentUser.isAuthenticated) {
-      if (!currentUser.country || !currentUser.age) setView('register');
-      else setView('search');
+      if (currentUser.country === 'Unknown') setView('register');
+      else {
+          setView('search');
+          refreshUsers();
+      }
     } else setView('auth');
-  }, [currentUser.isAuthenticated]);
+  }, [currentUser.isAuthenticated, currentUser.country]);
+
+  // Keep presence updated while panel is open
+  useEffect(() => {
+      if (!currentUser.id || !isOpen) return;
+      const interval = setInterval(() => {
+          // Fix: lastSeen is now recognized as a valid property of Partial<UserProfile>
+          chatService.updateUserProfile(currentUser.id, { lastSeen: Date.now() });
+      }, 60000);
+      return () => clearInterval(interval);
+  }, [currentUser.id, isOpen]);
 
   useEffect(() => {
     if (activeSession) {
@@ -87,9 +91,18 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
   useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream, callState]);
   useEffect(() => { if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream; }, [remoteStream, callState]);
 
+  const refreshUsers = async () => {
+      setIsSearching(true);
+      try {
+          const users = await chatService.getLiveUsers(currentUser.id);
+          setLiveUsers(users);
+      } finally {
+          setIsSearching(false);
+      }
+  };
+
   const handleCallSignal = async (signal: any) => {
     if (signal.senderId === currentUser.id) return;
-
     if (signal.type === 'offer') {
       setIncomingOffer(signal.sdp);
       setCallType(signal.callType);
@@ -99,9 +112,7 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
       setCallState('active');
     } else if (signal.type === 'candidate') {
       if (pcRef.current) await pcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
-    } else if (signal.type === 'hangup') {
-      endCallLocally();
-    }
+    } else if (signal.type === 'hangup') endCallLocally();
   };
 
   const initRTC = async (type: 'audio' | 'video') => {
@@ -147,10 +158,7 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
   const endCallLocally = () => {
     if (localStream) localStream.getTracks().forEach(t => t.stop());
     if (pcRef.current) pcRef.current.close();
-    setLocalStream(null);
-    setRemoteStream(null);
-    setIncomingOffer(null);
-    setCallState('idle');
+    setLocalStream(null); setRemoteStream(null); setIncomingOffer(null); setCallState('idle');
   };
 
   const handleLogin = async () => {
@@ -158,27 +166,20 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
     onUpdateCurrentUser({ ...currentUser, ...user, isAuthenticated: true });
   };
 
-  const handleRegistrationComplete = () => {
+  const handleRegistrationComplete = async () => {
     const updated = { ...currentUser, name: regName, age: parseInt(regAge), country: 'Global', city: 'Online', gender: regGender, hasAgreedToRules: true };
+    await chatService.updateUserProfile(currentUser.id, updated);
     onUpdateCurrentUser(updated);
     setView('search');
+    refreshUsers();
   };
 
-  const handleSearch = () => {
-    const min = parseInt(searchAgeMin);
-    const max = parseInt(searchAgeMax);
-    const results = DEMO_USERS.filter(u => u.age >= min && u.age <= max && (searchGender === 'any' || u.gender === searchGender));
-    setSearchResults(results);
-  };
-
-  const partnerDetails = activeSession ? DEMO_USERS.find(u => u.id === activeSession.participants.find(p => p !== currentUser.id)) || { name: 'Chat Partner', avatar: 'https://i.pravatar.cc/100' } : null;
+  const partnerDetails = activeSession ? liveUsers.find(u => u.id === activeSession.participants.find(p => p !== currentUser.id)) || { name: 'Chat Partner', avatar: 'https://i.pravatar.cc/100' } : null;
 
   if (!isOpen) return null;
 
   return (
     <aside className="w-full md:w-[420px] flex flex-col glass-panel border-l border-white/10 shadow-2xl z-[60] h-full fixed right-0 top-0 bottom-0 bg-[#0f172a]/95 backdrop-blur-xl animate-in slide-in-from-right duration-500">
-      
-      {/* Call UI Overlay */}
       {callState !== 'idle' && (
         <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-300 backdrop-blur-2xl">
           <div className="relative w-full h-full flex flex-col items-center">
@@ -202,17 +203,11 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
             <div className="mt-8 flex gap-6">
               {callState === 'incoming' ? (
                 <>
-                  <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
-                    {callType === 'video' ? <VideoCameraIcon className="w-8 h-8" /> : <PhoneIcon className="w-8 h-8" />}
-                  </button>
-                  <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
-                    <XMarkIcon className="w-8 h-8" />
-                  </button>
+                  <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-transform"><VideoCameraIcon className="w-8 h-8" /></button>
+                  <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-transform"><XMarkIcon className="w-8 h-8" /></button>
                 </>
               ) : (
-                <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-all hover:bg-red-500">
-                   <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
-                </button>
+                <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl hover:scale-110 transition-all hover:bg-red-500"><PhoneIcon className="w-8 h-8 rotate-[135deg]" /></button>
               )}
             </div>
           </div>
@@ -222,7 +217,7 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
       <header className="h-16 flex items-center justify-between px-4 border-b border-white/5 shrink-0">
         {view === 'chat' && partnerDetails ? (
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button onClick={() => { setView('inbox'); setActiveSession(null); }} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/5"><ArrowLeftIcon className="w-5 h-5" /></button>
+            <button onClick={() => { setView('search'); setActiveSession(null); }} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/5"><ArrowLeftIcon className="w-5 h-5" /></button>
             <img src={partnerDetails.avatar || ''} className="w-10 h-10 rounded-full border border-white/10" />
             <div className="min-w-0 flex-1"><h3 className="font-bold text-sm text-white truncate">{partnerDetails.name}</h3><p className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Online</p></div>
             <div className="flex items-center gap-1">
@@ -234,7 +229,7 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
           <>
             <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              {view === 'search' ? t.findFriends : t.privateChat}
+              {t.findFriends}
             </h2>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full"><XMarkIcon className="w-5 h-5" /></button>
           </>
@@ -263,22 +258,22 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
         )}
         {view === 'search' && (
           <div className="flex-1 flex flex-col p-4 overflow-y-auto no-scrollbar">
-             <div className="space-y-4 mb-6">
-                <h3 className="text-xl font-black text-white text-center mb-4">{t.findFriends}</h3>
-                <div className="grid grid-cols-2 gap-3">
-                   <select value={searchAgeMin} onChange={e => setSearchAgeMin(e.target.value)} className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-xs">{AGES.map(a => <option key={a} value={a}>{t.from} {a}</option>)}</select>
-                   <select value={searchAgeMax} onChange={e => setSearchAgeMax(e.target.value)} className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-xs">{AGES.map(a => <option key={a} value={a}>{t.to} {a}</option>)}</select>
-                </div>
-                <button onClick={handleSearch} className="w-full py-3 bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2"><SearchIcon className="w-4 h-4" /> {t.search}</button>
+             <div className="flex items-center justify-between mb-4 px-2">
+                 <h3 className="text-sm font-black text-white uppercase tracking-widest">{t.online} ({liveUsers.length})</h3>
+                 <button onClick={refreshUsers} className="text-[10px] font-bold text-primary uppercase">{isSearching ? '...' : 'Update'}</button>
              </div>
              <div className="space-y-3 pb-20">
-                {searchResults.map(user => (
-                  <div key={user.id} className="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition-colors">
-                     <img src={user.avatar || ''} className="w-12 h-12 rounded-xl object-cover" />
-                     <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{user.name}</h5><p className="text-[10px] text-slate-400 font-medium">{user.age} • {user.city}</p></div>
-                     <button onClick={() => { setActiveSession(chatService.acceptRequest('', currentUser.id, user.id)); setView('chat'); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-500 transition-colors">Chat</button>
-                  </div>
-                ))}
+                {liveUsers.length === 0 ? (
+                    <div className="text-center py-20 opacity-40"><UsersIcon className="w-12 h-12 mx-auto mb-4" /><p className="text-xs">{isSearching ? 'Loading users...' : 'No one else is online yet'}</p></div>
+                ) : (
+                    liveUsers.map(user => (
+                    <div key={user.id} className="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition-colors">
+                        <img src={user.avatar || ''} className="w-12 h-12 rounded-xl object-cover" />
+                        <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{user.name}</h5><p className="text-[10px] text-slate-400 font-medium">{user.age} • {user.country}</p></div>
+                        <button onClick={() => { setActiveSession(chatService.acceptRequest(currentUser.id, user.id)); setView('chat'); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-500 transition-colors">Chat</button>
+                    </div>
+                    ))
+                )}
              </div>
           </div>
         )}
@@ -296,7 +291,6 @@ const ChatPanel: React.FC<ChatPanelProps> = (props) => {
              </div>
              <div className="absolute bottom-0 inset-x-0 p-3 bg-[#0f172a]/95 backdrop-blur-md border-t border-white/5">
                 <div className="flex items-center gap-2">
-                   <button className="p-3 text-slate-400 hover:text-white bg-white/5 rounded-full"><PaperClipIcon className="w-6 h-6" /></button>
                    <input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && (()=>{chatService.sendMessage(activeSession.id, currentUser.id, inputText); setInputText('');})()} placeholder="Message..." className="flex-1 bg-white/5 border-none outline-none py-3 px-4 text-sm text-white rounded-2xl font-medium" />
                    <button onClick={()=>{chatService.sendMessage(activeSession.id, currentUser.id, inputText); setInputText('');}} className="p-3 bg-primary text-white rounded-full shadow-lg"><PaperAirplaneIcon className="w-6 h-6" /></button>
                 </div>
